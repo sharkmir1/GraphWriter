@@ -2,22 +2,24 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class MatrixAttn(nn.Module):
 
-  def __init__(self,linin,linout):
-    super().__init__()
-    self.attnlin = nn.Linear(linin,linout)
+    def __init__(self, linin, linout):
+        super().__init__()
+        self.attnlin = nn.Linear(linin, linout)
 
-  def forward(self,dec,emb):
-    emb,elen = emb
-    emask = torch.arange(0,emb.size(1)).unsqueeze(0).repeat(emb.size(0),1).long().cuda()
-    emask = (emask >= elen.unsqueeze(1)).unsqueeze(1)
-    decsmall = self.attnlin(dec)
-    unnorm = torch.bmm(decsmall,emb.transpose(1,2))
-    unnorm.masked_fill_(emask,-float('inf'))
-    attn = F.softmax(unnorm,dim=2)
-    out = torch.bmm(attn,emb)
-    return out, attn
+    def forward(self, dec, emb):
+        emb, elen = emb
+        emask = torch.arange(0, emb.size(1)).unsqueeze(0).repeat(emb.size(0), 1).long().cuda()
+        emask = (emask >= elen.unsqueeze(1)).unsqueeze(1)
+        decsmall = self.attnlin(dec)
+        unnorm = torch.bmm(decsmall, emb.transpose(1, 2))
+        unnorm.masked_fill_(emask, -float('inf'))
+        attn = F.softmax(unnorm, dim=2)
+        out = torch.bmm(attn, emb)
+        return out, attn
+
 
 class BahdanauAttention(nn.Module):
     def __init__(self, num_units, query_size, memory_size):
@@ -165,7 +167,7 @@ class LuongAttention(nn.Module):
 
             std = torch.FloatTensor([self._attention_window_size / 2.]).pow(2)
             alignment_point_dist = (
-                extended_key_lengths - predictive_alignment).pow(2)
+                    extended_key_lengths - predictive_alignment).pow(2)
 
             alignment_point_dist = (
                 -(alignment_point_dist / (2 * std[0]))).exp()
@@ -214,7 +216,7 @@ class MultiHeadAttention(nn.Module):
 
         self._num_units = num_units
         self._h = h
-        self._key_dim = torch.tensor(key_dim,requires_grad=False).float()
+        self._key_dim = torch.tensor(key_dim, requires_grad=False).float()
         self._dropout_p = dropout_p
         self._is_masked = is_masked
 
@@ -237,13 +239,13 @@ class MultiHeadAttention(nn.Module):
         V = torch.cat(V.split(split_size=chunk_size, dim=2), dim=0)
 
         # calculate QK^T
-        attention = torch.matmul(Q, K.transpose(1, 2)).cuda()
+        attention = torch.matmul(Q, K.transpose(1, 2))
         # normalize with sqrt(dk)
-        attention = attention / torch.sqrt(self._key_dim)
+        attention = attention / torch.sqrt(self._key_dim).cuda()
 
         if mask is not None:
-          mask = mask.repeat(self._h,1,1)
-          attention.masked_fill_(mask, -float('inf'))
+            mask = mask.repeat(self._h, 1, 1)
+            attention.masked_fill_(mask, -float('inf'))
         attention = F.softmax(attention, dim=-1)
         # apply dropout
         attention = F.dropout(attention, self._dropout_p)
@@ -256,8 +258,8 @@ class MultiHeadAttention(nn.Module):
         # residual connection
         attention += query
         # apply batch normalization
-        #attention = self.bn(attention.transpose(1, 2)).transpose(1, 2)
+        # attention = self.bn(attention.transpose(1, 2)).transpose(1, 2)
         # apply layer normalization
-        #attention = self.ln(attention)
+        # attention = self.ln(attention)
 
         return attention
