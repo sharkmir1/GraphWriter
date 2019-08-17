@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="431589e1-a82a-41d1-a5d4-a9e26f1303e4" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/lastDataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/lastDataset.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/attention.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/attention.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pargs.py" beforeDir="false" afterPath="$PROJECT_DIR$/pargs.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -19,7 +18,7 @@
           <provider selected="true" editor-type-id="text-editor" />
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/lastDataset.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="586">
@@ -27,6 +26,15 @@
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/models/attention.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="482">
+              <caret line="245" column="36" selection-start-line="245" selection-start-column="36" selection-end-line="245" selection-end-column="36" />
             </state>
           </provider>
         </entry>
@@ -54,8 +62,8 @@
       <list>
         <option value="$PROJECT_DIR$/pargs.py" />
         <option value="$PROJECT_DIR$/models/last_graph.py" />
-        <option value="$PROJECT_DIR$/models/attention.py" />
         <option value="$PROJECT_DIR$/lastDataset.py" />
+        <option value="$PROJECT_DIR$/models/attention.py" />
       </list>
     </option>
   </component>
@@ -87,6 +95,11 @@
               <item name="GraphWriter" type="b2602c69:ProjectViewProjectNode" />
               <item name="GraphWriter" type="462c0819:PsiDirectoryNode" />
             </path>
+            <path>
+              <item name="GraphWriter" type="b2602c69:ProjectViewProjectNode" />
+              <item name="GraphWriter" type="462c0819:PsiDirectoryNode" />
+              <item name="models" type="462c0819:PsiDirectoryNode" />
+            </path>
           </expand>
           <select />
         </subPane>
@@ -95,6 +108,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="node.js.detected.package.eslint" value="true" />
@@ -130,12 +144,12 @@
       <option name="presentableId" value="Default" />
       <updated>1566005492005</updated>
       <workItem from="1566005496493" duration="779000" />
-      <workItem from="1566006288384" duration="3519000" />
+      <workItem from="1566006288384" duration="3947000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="4298000" />
+    <option name="totallyTimeSpent" value="4726000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -150,7 +164,7 @@
     <frame x="0" y="23" width="1920" height="1120" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.25239617" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.25239617" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -221,13 +235,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/models/attention.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5376">
-          <caret line="258" column="9" lean-forward="true" selection-start-line="258" selection-start-column="9" selection-end-line="258" selection-end-column="9" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/lastDataset.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="586">
@@ -235,6 +242,13 @@
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/models/attention.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="482">
+          <caret line="245" column="36" selection-start-line="245" selection-start-column="36" selection-end-line="245" selection-end-column="36" />
         </state>
       </provider>
     </entry>
