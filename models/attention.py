@@ -247,7 +247,7 @@ class MultiHeadAttention(nn.Module):
         attention = F.softmax(attention, dim=-1)
         # apply dropout
         attention = F.dropout(attention, self._dropout_p)
-        # multiplyt it with V
+        # multiply it with V
         attention = torch.matmul(attention, V)
         # convert attention back to its input original size
         restore_chunk_size = int(attention.size(0) / self._h)

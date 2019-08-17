@@ -95,7 +95,7 @@ def pargs():
   parser.add_argument("-plweight",default=0.2,type=float)
   parser.add_argument("-entdetach",action='store_true')
 
-  parser.add_argument("-gpu",default=0)
+  parser.add_argument("-gpu",default=-1)
   args = parser.parse_args()
   args.gpu = "cpu" if args.gpu == -1 else "cuda:"+str(args.gpu)
   args.device = torch.device(args.gpu)
