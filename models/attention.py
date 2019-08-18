@@ -259,7 +259,7 @@ class MultiHeadAttention(nn.Module):
         attention = torch.cat(
             attention.split(split_size=restore_chunk_size, dim=0), dim=2)
         # residual connection
-        attention += query
+        attention += query.cuda()
         # apply batch normalization
         # attention = self.bn(attention.transpose(1, 2)).transpose(1, 2)
         # apply layer normalization
