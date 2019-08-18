@@ -239,11 +239,12 @@ class MultiHeadAttention(nn.Module):
         V = torch.cat(V.split(split_size=chunk_size, dim=2), dim=0)
 
         # calculate QK^T
-        attention = torch.matmul(Q, K.transpose(1, 2))
+        attention = torch.matmul(Q, K.transpose(1, 2)).cuda()
         # normalize with sqrt(dk)
-        attention = attention / torch.sqrt(self._key_dim).cuda()
+        attention = attention / torch.sqrt(self._key_dim)
 
         if mask is not None:
+            mask = mask.cuda()
             print("Attention", attention.device)
             print("Mask", mask.device, "\n")
             mask = mask.repeat(self._h, 1, 1)

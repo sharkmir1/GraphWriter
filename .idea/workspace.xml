@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="431589e1-a82a-41d1-a5d4-a9e26f1303e4" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/models/attention.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/attention.py" afterDir="false" />
-    </list>
+    <list default="true" id="431589e1-a82a-41d1-a5d4-a9e26f1303e4" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,8 +30,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/models/attention.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="246">
-              <caret line="248" column="36" selection-start-line="248" selection-start-column="36" selection-end-line="248" selection-end-column="36" />
+            <state relative-caret-position="333">
+              <caret line="243" column="64" selection-start-line="243" selection-start-column="64" selection-end-line="243" selection-end-column="64" />
             </state>
           </provider>
         </entry>
@@ -155,12 +153,12 @@
       <workItem from="1566006288384" duration="3995000" />
       <workItem from="1566020503160" duration="692000" />
       <workItem from="1566021381725" duration="703000" />
-      <workItem from="1566089463932" duration="614000" />
+      <workItem from="1566089463932" duration="878000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="6783000" />
+    <option name="totallyTimeSpent" value="7047000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -173,7 +171,6 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1920" height="1120" extended-state="6" />
-    <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.2603834" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
@@ -258,8 +255,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/models/attention.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="246">
-          <caret line="248" column="36" selection-start-line="248" selection-start-column="36" selection-end-line="248" selection-end-column="36" />
+        <state relative-caret-position="333">
+          <caret line="243" column="64" selection-start-line="243" selection-start-column="64" selection-end-line="243" selection-end-column="64" />
         </state>
       </provider>
     </entry>
