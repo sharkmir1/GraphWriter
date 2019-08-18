@@ -227,9 +227,9 @@ class MultiHeadAttention(nn.Module):
         self.ln = nn.LayerNorm(num_units)
 
     def forward(self, query, keys, mask=None):
-        Q = self.query_layer(query)
-        K = self.key_layer(keys)
-        V = self.value_layer(keys)
+        Q = self.query_layer(query).cuda()
+        K = self.key_layer(keys).cuda()
+        V = self.value_layer(keys).cuda()
 
         # split each Q, K and V into h different values from dim 2
         # and then merge them back together in dim 0
