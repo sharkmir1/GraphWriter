@@ -244,6 +244,8 @@ class MultiHeadAttention(nn.Module):
         attention = attention / torch.sqrt(self._key_dim).cuda()
 
         if mask is not None:
+            print("Attention", attention.device)
+            print("Mask", attention.device, "\n")
             mask = mask.repeat(self._h, 1, 1)
             attention.masked_fill_(mask, -float('inf'))
         attention = F.softmax(attention, dim=-1)
