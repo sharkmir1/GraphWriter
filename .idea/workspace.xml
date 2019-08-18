@@ -96,6 +96,7 @@
       <find>args.gpu</find>
       <find>sorting training</find>
       <find>rawent</find>
+      <find>train</find>
     </findStrings>
   </component>
   <component name="Git.Settings">

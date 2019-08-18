@@ -245,8 +245,6 @@ class MultiHeadAttention(nn.Module):
 
         if mask is not None:
             mask = mask
-            print("Attention", attention.device)
-            print("Mask", mask.device, "\n")
             mask = mask.repeat(self._h, 1, 1)
             attention.masked_fill_(mask, -float('inf'))
         attention = F.softmax(attention, dim=-1)
