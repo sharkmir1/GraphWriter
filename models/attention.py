@@ -239,12 +239,12 @@ class MultiHeadAttention(nn.Module):
         V = torch.cat(V.split(split_size=chunk_size, dim=2), dim=0)
 
         # calculate QK^T
-        attention = torch.matmul(Q, K.transpose(1, 2)).cuda()
+        attention = torch.matmul(Q, K.transpose(1, 2))
         # normalize with sqrt(dk)
-        attention = attention / torch.sqrt(self._key_dim)
+        attention = attention / torch.sqrt(self._key_dim).cuda()
 
         if mask is not None:
-            mask = mask.cuda()
+            mask = mask
             print("Attention", attention.device)
             print("Mask", mask.device, "\n")
             mask = mask.repeat(self._h, 1, 1)
@@ -259,7 +259,7 @@ class MultiHeadAttention(nn.Module):
         attention = torch.cat(
             attention.split(split_size=restore_chunk_size, dim=0), dim=2)
         # residual connection
-        attention += query.cuda()
+        attention += query
         # apply batch normalization
         # attention = self.bn(attention.transpose(1, 2)).transpose(1, 2)
         # apply layer normalization
