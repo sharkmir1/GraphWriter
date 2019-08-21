@@ -27,7 +27,7 @@ class model(nn.Module):
         if args.plan:
             self.splan = splanner(args)
         if args.title:
-            self.tenc = lseq_encode(args, toks=args.ninput)
+            self.tenc = lseq_encode(args, toks=args.ninput)  # title encoder
             self.attn2 = MultiHeadAttention(args.hsz, args.hsz, args.hsz, h=4, dropout_p=args.drop)
             self.mix = nn.Linear(args.hsz, 1)
 

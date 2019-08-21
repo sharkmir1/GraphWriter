@@ -11,7 +11,7 @@ class dataset:
         print("Loading Data from ", args.path)
         self.args = args
         self.mkVocabs(args)
-        print("Vocab sizes:")
+        print("\nVocab Sizes:")
         for x in self.fields:
             try:
                 print(x[0], len(x[1].vocab))
@@ -38,13 +38,18 @@ class dataset:
         return self.pad_list(ex, 1)
 
     def mkGraphs(self, r, ent):
+        '''
+        :param r: relation string of a dataset row
+        :param ent: number of entities in a dataset row
+        :return: adj, rel matrices
+        '''
+
         # convert triples to entlist with adj and rel matrices
-        pieces = r.strip().split(';')
-        x = [[int(y) for y in z.strip().split()] for z in pieces]
-        rel = [2]
-        # global root node
+        triples = r.strip().split(';')
+        x = [[int(y) for y in triple.strip().split()] for triple in triples]
+        rel = [2]  # global root node (i.e. 'ROOT')
         adjsize = ent + 1 + (2 * len(x))
-        adj = torch.zeros(adjsize, adjsize)
+        adj = torch.zeros(adjsize, adjsize)  # adjoint matrix (# Entity + Global root + # relations) ^2
         for i in range(ent):
             adj[i, ent] = 1
             adj[ent, i] = 1
@@ -60,7 +65,7 @@ class dataset:
             adj[c, b] = 1
             adj[b, d] = 1
             adj[d, a] = 1
-        rel = torch.LongTensor(rel)
+        rel = torch.LongTensor(rel)  # rel: ['ROOT', 'REL 1', 'REL 1_inv', 'REL 2', 'REL 2_inv', ...]
         return (adj, rel)
 
     def adjToSparse(self, adj):
@@ -72,13 +77,13 @@ class dataset:
     def mkVocabs(self, args):
         args.path = args.datadir + args.data
         self.INP = data.Field(sequential=True, batch_first=True, init_token="<start>", eos_token="<eos>",
-                              include_lengths=True)
+                              include_lengths=True)  # Title
         self.OUTP = data.Field(sequential=True, batch_first=True, init_token="<start>", eos_token="<eos>",
-                               include_lengths=True)
+                               include_lengths=True)  # Gold Abstract, preprocessed
         self.TGT = data.Field(sequential=True, batch_first=True, init_token="<start>", eos_token="<eos>")
-        self.NERD = data.Field(sequential=True, batch_first=True, eos_token="<eos>")
-        self.ENT = data.RawField() # Entity
-        self.REL = data.RawField() # Relation
+        self.NERD = data.Field(sequential=True, batch_first=True, eos_token="<eos>")  # Entity Type
+        self.ENT = data.RawField()  # Entity
+        self.REL = data.RawField()  # Relation between entities
         self.SORDER = data.RawField()
         self.SORDER.is_target = False
         self.REL.is_target = False
@@ -87,25 +92,35 @@ class dataset:
                        ("sorder", self.SORDER)]
         train = data.TabularDataset(path=args.path, format='tsv', fields=self.fields)
 
-        print('building vocab')
+        print('Building Vocab... ', end='')
 
         self.OUTP.build_vocab(train, min_freq=args.outunk)
-        generics = ['<method>', '<material>', '<otherscientificterm>', '<metric>', '<task>']
+        generics = ['<method>', '<material>', '<otherscientificterm>', '<metric>', '<task>']  # Entity Types
+
+        # perhaps change below 3 lines to self.OUTP.vocab.extend(generics)
         self.OUTP.vocab.itos.extend(generics)
         for x in generics:
             self.OUTP.vocab.stoi[x] = self.OUTP.vocab.itos.index(x)
+
+        # Target Vocab
+        # Adds (e.g. <method_0> ~ <method_39> to target vocab)
         self.TGT.vocab = copy(self.OUTP.vocab)
         specials = "method material otherscientificterm metric task".split(" ")
         for x in specials:
             for y in range(40):
                 s = "<" + x + "_" + str(y) + ">"
                 self.TGT.vocab.stoi[s] = len(self.TGT.vocab.itos) + y
+
+        # Entity Type Vocab
         self.NERD.build_vocab(train, min_freq=0)
         for x in generics:
             self.NERD.vocab.stoi[x] = self.OUTP.vocab.stoi[x]
 
+        # Title Vocab
         self.INP.build_vocab(train, min_freq=args.entunk)
 
+        # Relation Vocab
+        # Adds relations.vocab + inverse of relations.vocab
         self.REL.special = ['<pad>', '<unk>', 'ROOT']
         with open(args.datadir + "/" + args.relvocab) as f:
             rvocab = [x.strip() for x in f.readlines()]
@@ -116,7 +131,7 @@ class dataset:
 
         self.ENT.itos, self.ENT.stoi = self.build_ent_vocab(args.path)
 
-        print('done')
+        print('Done')
         if not self.args.eval:
             self.mkiters(train)
 
@@ -166,17 +181,17 @@ class dataset:
         t2d = data.Dataset(t2, self.fields)
         t3d = data.Dataset(t3, self.fields)
         valid = data.TabularDataset(path=args.path.replace("train", "val"), format='tsv', fields=self.fields)
-        print("ds sizes:", end='\t')
+        print("Dataset Sizes (t1, t2, t3, valid):", end=' ')
         for ds in [t1d, t2d, t3d, valid]:
-            print(len(ds.examples), end='\t')
+            print(len(ds.examples), end=' ')
             for x in ds:
                 x.rawent = x.ent.split(" ; ")
-                x.ent = self.vec_ents(x.ent, self.ENT)
+                x.ent = self.vec_ents(x.ent, self.ENT)  # Entity List -> List of List of Vocab Indices
                 x.rel = self.mkGraphs(x.rel, len(x.ent[1]))
                 if args.sparse:
                     x.rel = (self.adjToSparse(x.rel[0]), x.rel[1])
                 x.tgt = x.out
-                x.out = [y.split("_")[0] + ">" if "_" in y else y for y in x.out]
+                x.out = [y.split("_")[0] + ">" if "_" in y else y for y in x.out]  # removes tag indices for out (e.g. <method_0> => <method>
                 x.sordertgt = torch.LongTensor([int(y) + 3 for y in x.sorder.split(" ")])
                 x.sorder = [[int(z) for z in y.strip().split(" ")] for y in x.sorder.split("-1")[:-1]]
             ds.fields["tgt"] = self.TGT
