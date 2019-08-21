@@ -4,6 +4,7 @@ from time import time
 from lastDataset import dataset
 from models.newmodel import model 
 from pargs import pargs,dynArgs
+from tqdm import tqdm
 #import utils.eval as evalMetrics
 
 def tgtreverse(tgts,entlist,order):
@@ -18,6 +19,7 @@ def tgtreverse(tgts,entlist,order):
   return " ".join(tgts)
         
 def test(args,ds,m,epoch='cmdline'):
+
   args.vbsz = 1
   model = args.save.split("/")[-1]
   ofn = "../outputs/"+model+".beam_predictions"
@@ -28,9 +30,9 @@ def test(args,ds,m,epoch='cmdline'):
   pf = open(ofn,'w')
   preds = []
   golds = []
-  for b in data:
+  for b in tqdm(data):
     #if k == 10: break
-    print(k,len(data))
+    #print(k,len(data))
     b = ds.fixBatch(b)
     '''
     p,z = m(b)
@@ -42,13 +44,16 @@ def test(args,ds,m,epoch='cmdline'):
     gen = ds.reverse(gen.done[0].words,b.rawent)
     k+=1
     gold = ds.reverse(b.tgt[0][1:],b.rawent)
-    print(gold)
-    print(gen)
-    print()
+    #print("GOLD\n"+gold)
+    #print("\nGEN\n"+gen)
+    #print()
     preds.append(gen.lower())
     golds.append(gold.lower())
     #tf.write(ent+'\n')
-    pf.write(gen.lower()+'\n')
+    pf.write(str(k)+'.\n')
+    pf.write("GOLD\n"+gold.encode('ascii', 'ignore').decode('utf-8', 'ignore') +'\n')
+    pf.write("GEN\n"+gen.encode('ascii', 'ignore').decode('utf-8', 'ignore').lower()+'\n\n')
+	
   m.train()
   return preds,golds
 
