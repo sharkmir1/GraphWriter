@@ -2,14 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="431589e1-a82a-41d1-a5d4-a9e26f1303e4" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/eval.py" beforeDir="false" afterPath="$PROJECT_DIR$/NOUSE_eval.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lastDataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/lastDataset.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/graph_encoder.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/NOUSE_graph_encoder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/attention.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/attention.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models/last_graph.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/last_graph.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/list_encoder.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/list_encoder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/newmodel.py" beforeDir="false" afterPath="$PROJECT_DIR$/models/newmodel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/vectorize.py" beforeDir="false" afterPath="$PROJECT_DIR$/NOUSE_vectorize.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -36,8 +30,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/models/last_graph.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="484">
-              <caret line="73" column="44" lean-forward="true" selection-start-line="73" selection-start-column="44" selection-end-line="73" selection-end-column="44" />
+            <state relative-caret-position="426">
+              <caret line="27" column="24" lean-forward="true" selection-start-line="27" selection-start-column="24" selection-end-line="27" selection-end-column="24" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -46,10 +40,19 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/models/attention.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="742">
+              <caret line="267" column="40" lean-forward="true" selection-start-line="267" selection-start-column="40" selection-end-line="267" selection-end-column="40" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/models/newmodel.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="194">
-              <caret line="41" column="57" selection-start-line="41" selection-start-column="57" selection-end-line="41" selection-end-column="57" />
+            <state relative-caret-position="267">
+              <caret line="45" column="21" lean-forward="true" selection-start-line="45" selection-start-column="21" selection-end-line="45" selection-end-column="21" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -84,7 +87,7 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/lastDataset.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="579">
+            <state relative-caret-position="2728">
               <caret line="164" column="16" lean-forward="true" selection-start-line="164" selection-start-column="16" selection-end-line="164" selection-end-column="16" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
@@ -97,7 +100,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>unk</find>
       <find>src</find>
       <find>ninput</find>
       <find>cat_Direc</find>
@@ -127,6 +129,7 @@
       <find>layers</find>
       <find>adjoint</find>
       <find>length</find>
+      <find>gatact</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -135,13 +138,13 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/models/attention.py" />
         <option value="$PROJECT_DIR$/train.py" />
         <option value="$PROJECT_DIR$/pargs.py" />
         <option value="$PROJECT_DIR$/models/splan.py" />
         <option value="$PROJECT_DIR$/lastDataset.py" />
         <option value="$PROJECT_DIR$/models/list_encoder.py" />
         <option value="$PROJECT_DIR$/models/newmodel.py" />
+        <option value="$PROJECT_DIR$/models/attention.py" />
         <option value="$PROJECT_DIR$/models/last_graph.py" />
       </list>
     </option>
@@ -224,12 +227,12 @@
       <workItem from="1566089463932" duration="1823000" />
       <workItem from="1566370204672" duration="13485000" />
       <workItem from="1566389656629" duration="6173000" />
-      <workItem from="1566454881856" duration="12192000" />
+      <workItem from="1566454881856" duration="15133000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="39842000" />
+    <option name="totallyTimeSpent" value="42783000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -308,34 +311,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/models/attention.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-14">
-          <caret line="226" column="25" selection-start-line="226" selection-start-column="25" selection-end-line="226" selection-end-column="25" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$USER_HOME$/anaconda3/envs/dlstudy/lib/python3.7/site-packages/torch/__init__.pyi">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="324">
           <caret line="376" column="8" selection-start-line="376" selection-start-column="8" selection-end-line="376" selection-end-column="8" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/data/preprocessed.val.tsv">
-      <provider selected="true" editor-type-id="csv-table-editor">
-        <state showInfoPanel="true" fixedHeaders="false" autoColumnWidthOnOpen="false" rowLines="9">
-          <column index="0" width="213" />
-          <column index="1" width="458" />
-          <column index="2" width="573" />
-          <column index="3" width="127" />
-          <column index="4" width="735" />
-          <column index="5" width="171" />
-        </state>
-      </provider>
-      <provider editor-type-id="csv-text-editor">
-        <state relative-caret-position="147">
-          <caret line="7" column="80" selection-start-line="7" selection-start-column="80" selection-end-line="7" selection-end-column="80" />
         </state>
       </provider>
     </entry>
@@ -450,16 +429,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/lastDataset.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="579">
-          <caret line="164" column="16" lean-forward="true" selection-start-line="164" selection-start-column="16" selection-end-line="164" selection-end-column="16" />
-          <folding>
-            <element signature="e#0#12#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/models/list_encoder.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="742">
@@ -470,20 +439,54 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/models/newmodel.py">
+    <entry file="file://$PROJECT_DIR$/data/preprocessed.val.tsv">
+      <provider selected="true" editor-type-id="csv-table-editor">
+        <state showInfoPanel="true" fixedHeaders="false" autoColumnWidthOnOpen="false" rowLines="9">
+          <column index="0" width="213" />
+          <column index="1" width="458" />
+          <column index="2" width="573" />
+          <column index="3" width="127" />
+          <column index="4" width="735" />
+          <column index="5" width="171" />
+        </state>
+      </provider>
+      <provider editor-type-id="csv-text-editor">
+        <state relative-caret-position="147">
+          <caret line="7" column="80" selection-start-line="7" selection-start-column="80" selection-end-line="7" selection-end-column="80" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/lastDataset.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="194">
-          <caret line="41" column="57" selection-start-line="41" selection-start-column="57" selection-end-line="41" selection-end-column="57" />
+        <state relative-caret-position="2728">
+          <caret line="164" column="16" lean-forward="true" selection-start-line="164" selection-start-column="16" selection-end-line="164" selection-end-column="16" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/models/newmodel.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="267">
+          <caret line="45" column="21" lean-forward="true" selection-start-line="45" selection-start-column="21" selection-end-line="45" selection-end-column="21" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/models/attention.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="742">
+          <caret line="267" column="40" lean-forward="true" selection-start-line="267" selection-start-column="40" selection-end-line="267" selection-end-column="40" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/models/last_graph.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="484">
-          <caret line="73" column="44" lean-forward="true" selection-start-line="73" selection-start-column="44" selection-end-line="73" selection-end-column="44" />
+        <state relative-caret-position="426">
+          <caret line="27" column="24" lean-forward="true" selection-start-line="27" selection-start-column="24" selection-end-line="27" selection-end-column="24" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>

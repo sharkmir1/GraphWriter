@@ -214,7 +214,7 @@ class MultiHeadAttention(nn.Module):
             raise ValueError("to employ residual connection, the number of "
                              "query_dim and num_units must be the same")
 
-        self._num_units = num_units
+        self._num_units = num_units  # value_dim
         self._h = h
         self._key_dim = torch.tensor(key_dim, requires_grad=False).float()
         self._dropout_p = dropout_p
@@ -233,34 +233,39 @@ class MultiHeadAttention(nn.Module):
 
         # split each Q, K and V into h different values from dim 2
         # and then merge them back together in dim 0
+        # e.g. K: (27, 27, 500) => (108, 27, 125)
         chunk_size = int(self._num_units / self._h)
         Q = torch.cat(Q.split(split_size=chunk_size, dim=2), dim=0)
         K = torch.cat(K.split(split_size=chunk_size, dim=2), dim=0)
         V = torch.cat(V.split(split_size=chunk_size, dim=2), dim=0)
 
         # calculate QK^T
+        # e.g. = (108, 1, 27)
         attention = torch.matmul(Q, K.transpose(1, 2))
         # normalize with sqrt(dk)
         attention = attention / torch.sqrt(self._key_dim).cuda()
 
         if mask is not None:
+            #  replace attention of entries without edge, with -inf
             mask = mask
-            mask = mask.repeat(self._h, 1, 1)
+            mask = mask.repeat(self._h, 1, 1)  # e.g. mask: (27, 1, 27) => (108, 1, 27)
             attention.masked_fill_(mask, -float('inf'))
         attention = F.softmax(attention, dim=-1)
         # apply dropout
         attention = F.dropout(attention, self._dropout_p)
         # multiply it with V
+        # e.g. = (108, 1, 125)
         attention = torch.matmul(attention, V)
         # convert attention back to its input original size
         restore_chunk_size = int(attention.size(0) / self._h)
         attention = torch.cat(
             attention.split(split_size=restore_chunk_size, dim=0), dim=2)
         # residual connection
-        attention += query
+        attention += query  # (27, 1, 500)
         # apply batch normalization
         # attention = self.bn(attention.transpose(1, 2)).transpose(1, 2)
         # apply layer normalization
         # attention = self.ln(attention)
 
-        return attention
+        # NOTE no layer_norm here
+        return attention  # v_caret in paper

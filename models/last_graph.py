@@ -24,10 +24,10 @@ class Block(nn.Module):
         self.gatact = nn.PReLU(args.hsz)
 
     def forward(self, q, k, m):
-        q = self.attn(q, k, mask=m).squeeze(1)
+        q = self.attn(q, k, mask=m).squeeze(1)  # self-attended vertices / (adj_len(# of entities + # of relations, 500)
         t = self.ln_1(q)
         q = self.drop(self.l2(self.act(self.l1(t))))
-        q = self.ln_1(q + t)
+        q = self.ln_2(q + t)
         return q
 
 
@@ -87,6 +87,7 @@ class graph_encode(nn.Module):
                     vgraph = self.gat[j](vgraph.unsqueeze(1), ngraph, mask)
                 else:
                     ngraph = torch.tensor(vgraph.repeat(N, 1).view(N, N, -1), requires_grad=False)
+                    # ngraph: (N, N, 500) / cat of vgraph N times
                     vgraph = self.gat[j](vgraph.unsqueeze(1), ngraph, mask)
                     if self.args.model == 'gat':
                         vgraph = vgraph.squeeze(1)
