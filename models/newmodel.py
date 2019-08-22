@@ -36,9 +36,11 @@ class model(nn.Module):
             tencs, _ = self.tenc(b.src)
             tmask = self.maskFromList(tencs.size(), b.src[1]).unsqueeze(1)
         outp, _ = b.out
-        ents = b.ent
+        ents = b.ent  # (ent, phlens, elens) => refer to fixBatch in lastDataset.py
         entlens = ents[2]
         ents = self.le(ents)
+        # ents: (batch_size (num of rows), max entity num, 500) / encoded hidden state of entities in batch
+
         if self.graph:
             gents, glob, grels = self.ge(b.rel[0], b.rel[1], (ents, entlens))
             hx = glob

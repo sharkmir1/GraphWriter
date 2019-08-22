@@ -51,14 +51,24 @@ class graph_encode(nn.Module):
         return torch.cat([tensor, tensor.new(length - tensor.size(0), *tensor.size()[1:]).fill_(0)])
 
     def forward(self, adjs, rels, ents):
+        """
+
+        :param adjs: list of adjacency matrices in batch
+        :param rels: list of tensors of relations per row in batch
+        :param ents: tuple (tensor(batch_size, max entity num, 500 ): encoded entities per row,
+                            tensor(batch_size): # of entities in rows)
+        :return: gents, glob, grels
+        """
         vents, entlens = ents
         if self.args.entdetach:
             vents = torch.tensor(vents, requires_grad=False)
-        vrels = [self.renc(x) for x in rels]
+        vrels = [self.renc(x) for x in rels]  # vrels: list of (num of relations, 500) per row in batch
         glob = []
         graphs = []
+
         for i, adj in enumerate(adjs):
             vgraph = torch.cat((vents[i][:entlens[i]], vrels[i]), 0)
+            # vgraph: (# of entities + # of relations, 500) / cat(embedding(entities), embedding(relations))
             N = vgraph.size(0)
             if self.sparse:
                 lens = [len(x) for x in adj]

@@ -49,7 +49,7 @@ class dataset:
         x = [[int(y) for y in triple.strip().split()] for triple in triples]
         rel = [2]  # global root node (i.e. 'ROOT')
         adjsize = ent + 1 + (2 * len(x))
-        adj = torch.zeros(adjsize, adjsize)  # adjoint matrix (# Entity + Global root + # relations) ^2
+        adj = torch.zeros(adjsize, adjsize)  # adjacency matrix (# Entity + Global root + # relations) ^2
         for i in range(ent):
             adj[i, ent] = 1
             adj[ent, i] = 1
@@ -139,27 +139,37 @@ class dataset:
         return [x.to(self.args.device) for x in l]
 
     def fixBatch(self, b):
-        ent, phlens = zip(*b.ent)
+
+        ent, phlens = zip(*b.ent)  # b.ent: (batch_size,) / list of x.ent
+        # ent: (batch_size,) / tuple of (num of entity, longest entity len) per each dataset row
+        # phlens: (batch_size,) / tuple of (num of entity) per each dataset row i.e. 각 row의 각 entity의 단어 개수
         ent, elens = self.adjToBatch(ent)
+        # ent: (sum of num of entities in each row, longest entity len)
+        # elens: (batch_size,) / tensor of number of entities in each row
         ent = ent.to(self.args.device)
-        adj, rel = zip(*b.rel)
+
+        adj, rel = zip(*b.rel)  # b.rel: (batch_size,) / list of x.rel
+        # adj: (batch_size,) / tuple of adjacency matrices per each dataset row
+        # rel: (batch_size,) / tuple of list of relations per each dataset row
         if self.args.sparse:
             b.rel = [adj, self.listTo(rel)]
         else:
-            b.rel = [self.listTo(adj), self.listTo(rel)]
+            b.rel = [self.listTo(adj), self.listTo(rel)]  # [[adj1, adj2, ...], [rel1, rel2, ...]]
         if self.args.plan:
             b.sordertgt = self.listTo(self.pad_list(b.sordertgt))
         phlens = torch.cat(phlens, 0).to(self.args.device)
+        # phlens: (sum of num of entities in each row, ) / tensor of 각 entity의 단어 개수
+
         elens = elens.to(self.args.device)
         b.ent = (ent, phlens, elens)
         return b
 
     def adjToBatch(self, adj):
-        lens = [x.size(0) for x in adj]
-        m = max([x.size(1) for x in adj])
+        lens = [x.size(0) for x in adj]  # lens: list of # of entities in each dataset row
+        m = max([x.size(1) for x in adj])  # m: longest entity len in the batch
         data = [self.pad(x.transpose(0, 1), m).transpose(0, 1) for x in adj]
         data = torch.cat(data, 0)
-        return data, torch.LongTensor(lens)
+        return data, torch.LongTensor(lens)  # data: pads each x in adj to (,m), and concat them
 
     def bszFn(self, e, l, c):
         return c + len(e.out)
@@ -186,12 +196,17 @@ class dataset:
             print(len(ds.examples), end=' ')
             for x in ds:
                 x.rawent = x.ent.split(" ; ")
-                x.ent = self.vec_ents(x.ent, self.ENT)  # Entity List -> List of List of Vocab Indices
+                x.ent = self.vec_ents(x.ent, self.ENT)
+                # x.ent: (num of entity, longest entity len), (num of entity)
+
                 x.rel = self.mkGraphs(x.rel, len(x.ent[1]))
                 if args.sparse:
                     x.rel = (self.adjToSparse(x.rel[0]), x.rel[1])
+
                 x.tgt = x.out
-                x.out = [y.split("_")[0] + ">" if "_" in y else y for y in x.out]  # removes tag indices for out (e.g. <method_0> => <method>
+                x.out = [y.split("_")[0] + ">" if "_" in y else y for y in x.out]
+                # x.out: removes tag indices for out (e.g. <method_0> => <method>
+
                 x.sordertgt = torch.LongTensor([int(y) + 3 for y in x.sorder.split(" ")])
                 x.sorder = [[int(z) for z in y.strip().split(" ")] for y in x.sorder.split("-1")[:-1]]
             ds.fields["tgt"] = self.TGT

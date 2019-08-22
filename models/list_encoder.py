@@ -5,9 +5,6 @@ from torch.nn import functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from allennlp.modules.elmo import Elmo
 
-global i
-
-
 
 class lseq_encode(nn.Module):
 
@@ -27,14 +24,12 @@ class lseq_encode(nn.Module):
 
         self.encoder = nn.LSTM(sz, args.hsz // 2, bidirectional=True, num_layers=args.layers, batch_first=True)
 
-        i=0
-
     def _cat_directions(self, h):
         h = torch.cat([h[0:h.size(0):2], h[1:h.size(0):2]], 2)
         return h
 
     def forward(self, inp):
-        l, ilens = inp
+        l, ilens = inp  # l: (batch_size, title_len) / ilens: (batch_size)
         learned_emb = self.lemb(l)
         learned_emb = self.input_drop(learned_emb)
         if self.use_elmo:
@@ -50,18 +45,18 @@ class lseq_encode(nn.Module):
         e = torch.zeros_like(e).scatter(0, idxs.unsqueeze(1).unsqueeze(1).expand(-1, e.size(1), e.size(2)), e)
         h = h.transpose(0, 1)
         h = torch.zeros_like(h).scatter(0, idxs.unsqueeze(1).unsqueeze(1).expand(-1, h.size(1), h.size(2)), h)
-        if i == 0:
-            print(e.size, h.size)
 
-        i += 1
+        # e: (batch_size, title_len, hsz) / h: (batch_size, layer_size * 2 (=4), hsz//2)
         return e, h
 
 
 class list_encode(nn.Module):
+    """
+    Encodes list of each row's `entity list` into sequence of 500-dim vector per entity
+    """
     def __init__(self, args):
         super().__init__()
-        self.seqenc = lseq_encode(args, toks=args.vtoks)  # ,vocab=args.ent_vocab)
-        # self.seqenc = lseq_encode(args,vocab=args.ent_vocab)
+        self.seqenc = lseq_encode(args, toks=args.vtoks)
 
     def pad(self, tensor, length):
         return torch.cat([tensor, tensor.new(length - tensor.size(0), *tensor.size()[1:]).fill_(0)])
@@ -69,10 +64,10 @@ class list_encode(nn.Module):
     def forward(self, batch, pad=True):
         batch, phlens, batch_lens = batch
         batch_lens = tuple(batch_lens.tolist())
-        _, enc = self.seqenc((batch, phlens))
-        enc = enc[:, 2:]
-        enc = torch.cat([enc[:, i] for i in range(enc.size(1))], 1)
-        m = max(batch_lens)
-        encs = [self.pad(x, m) for x in enc.split(batch_lens)]
+        _, enc = self.seqenc((batch, phlens))  # enc: (batch_size, 4, 250)
+        enc = enc[:, 2:]  # enc: (batch_size, 2, 250)
+        enc = torch.cat([enc[:, i] for i in range(enc.size(1))], 1)  # enc: (batch_size, 500) / last hidden state
+        m = max(batch_lens)  # max number of entities in a row
+        encs = [self.pad(x, m) for x in enc.split(batch_lens)]  # split chunked batch into tensors of each dataset row
         out = torch.stack(encs, 0)
-        return out
+        return out  # (batch_size (num of rows) , m, 500)
