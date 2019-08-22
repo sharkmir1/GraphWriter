@@ -268,4 +268,4 @@ class MultiHeadAttention(nn.Module):
         # attention = self.ln(attention)
 
         # NOTE no layer_norm here
-        return attention  # v_caret in paper
+        return attention  # V_caret in paper
