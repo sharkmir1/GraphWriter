@@ -32,6 +32,9 @@ class Block(nn.Module):
 
 
 class graph_encode(nn.Module):
+    """
+    Graph Transformer => refer to fig.4 in original paper
+    """
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -52,15 +55,14 @@ class graph_encode(nn.Module):
 
     def forward(self, adjs, rels, ents):
         """
-
         :param adjs: list of adjacency matrices in batch
         :param rels: list of tensors of relations per row in batch
         :param ents: tuple (tensor(batch_size, max entity num, 500 ): encoded entities per row,
                             tensor(batch_size): # of entities in rows)
         :return: None, glob, (gents, emask)
-                 glob: global node embedding (batch_size, 500)
-                 gents: (batch_size, max adj_matrix size, 500)
-                 emask: (batch_size, max adj_matrix size) / 각 adj_matrix의 size보다 작은 부분만 1
+                 glob: (batch_size, 500) / global node embedding
+                 gents: (batch_size, max adj_matrix size, 500) / graph contextualized vertex encodings
+                 emask: (batch_size, max adj_matrix size) / 각 adj_matrix의 size + 1보다 작은 부분만 1
         """
         vents, entlens = ents
         if self.args.entdetach:
@@ -72,7 +74,7 @@ class graph_encode(nn.Module):
         for i, adj in enumerate(adjs):
             vgraph = torch.cat((vents[i][:entlens[i]], vrels[i]), 0)
             # vgraph: (# of entities + # of relations, 500) / cat(embedding(entities), embedding(relations))
-            N = vgraph.size(0)
+            N = vgraph.size(0)  # adj_matrix size
             if self.sparse:
                 lens = [len(x) for x in adj]
                 m = max(lens)
@@ -99,9 +101,9 @@ class graph_encode(nn.Module):
             glob.append(vgraph[entlens[i]])  # append each global node's embedding
         elens = [x.size(0) for x in graphs]
         gents = [self.pad(x, max(elens)) for x in graphs]
-        gents = torch.stack(gents, 0)   # (batch_size, max adj_matrix size, 500)
+        gents = torch.stack(gents, 0)   # (batch_size, max N, 500)
         elens = torch.LongTensor(elens)
         emask = torch.arange(0, gents.size(1)).unsqueeze(0).repeat(gents.size(0), 1).long()
-        emask = (emask <= elens.unsqueeze(1)).cuda()  # (batch_size, max adj_matrix size) / 각 adj_matrix의 size보다 작은 부분만 1
+        emask = (emask <= elens.unsqueeze(1)).cuda()  # (batch_size, max N) / 각 adj_matrix의 size + 1보다 작은 부분만 1
         glob = torch.stack(glob, 0)  # (batch_size, 500)
         return None, glob, (gents, emask)

@@ -10,15 +10,15 @@ class MatrixAttn(nn.Module):
         self.attnlin = nn.Linear(linin, linout)
 
     def forward(self, dec, emb):
-        emb, elen = emb
+        emb, elen = emb  # emb: (batch_size , max entity num, 500), elen: (batch_size,)
         emask = torch.arange(0, emb.size(1)).unsqueeze(0).repeat(emb.size(0), 1).long().cuda()
-        emask = (emask >= elen.unsqueeze(1)).unsqueeze(1)
-        decsmall = self.attnlin(dec)
-        unnorm = torch.bmm(decsmall, emb.transpose(1, 2))
+        emask = (emask >= elen.unsqueeze(1)).unsqueeze(1)  # (batch_size, max entity num)
+        decsmall = self.attnlin(dec)  # (batch_size, max abstract len, 500)
+        unnorm = torch.bmm(decsmall, emb.transpose(1, 2))  # (b_size, max abstract len, max entity num) / compute QK^T
         unnorm.masked_fill_(emask, -float('inf'))
         attn = F.softmax(unnorm, dim=2)
         out = torch.bmm(attn, emb)
-        return out, attn
+        return out, attn  # attn: (b_size, max_abstract_len, max_entity_num) / entities attended on each abstract word
 
 
 class BahdanauAttention(nn.Module):

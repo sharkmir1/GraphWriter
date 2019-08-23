@@ -29,7 +29,7 @@ class lseq_encode(nn.Module):
         return h
 
     def forward(self, inp):
-        l, ilens = inp  # l: (batch_size, title_len) / ilens: (batch_size)
+        l, ilens = inp  # l: (batch_size, title_len), ilens: (batch_size) / list of lengths of each title
         learned_emb = self.lemb(l)
         learned_emb = self.input_drop(learned_emb)
         if self.use_elmo:

@@ -29,23 +29,24 @@ class model(nn.Module):
         if args.title:
             self.tenc = lseq_encode(args, toks=args.ninput)  # title encoder
             self.attn2 = MultiHeadAttention(args.hsz, args.hsz, args.hsz, h=4, dropout_p=args.drop)
+            # attn2: computes c_s (decoding-phase context vector for title)
             self.mix = nn.Linear(args.hsz, 1)
 
     def forward(self, b):
         if self.args.title:
-            tencs, _ = self.tenc(b.src)
-            tmask = self.maskFromList(tencs.size(), b.src[1]).unsqueeze(1)
-        outp, _ = b.out
-        ents = b.ent  # (ent, phlens, elens) => refer to fixBatch in lastDataset.py
+            tencs, _ = self.tenc(b.src)  # (batch_size, title_len, 500)
+            tmask = self.maskFromList(tencs.size(), b.src[1]).unsqueeze(1)  # (batch_size, 1, title_len)
+        outp, _ = b.out  # (batch_size, max abstract len) / all tag indices removed
+        ents = b.ent  # tuple of (ent, phlens, elens) / refer to fixBatch in lastDataset.py
         entlens = ents[2]
         ents = self.le(ents)
         # ents: (batch_size (num of rows), max entity num, 500) / encoded hidden state of entities in batch
 
         if self.graph:
             gents, glob, grels = self.ge(b.rel[0], b.rel[1], (ents, entlens))
-            hx = glob
+            hx = glob  # this is the initial hidden state for decoding lstm
             keys, mask = grels
-            mask = mask == 0
+            mask = mask == 0  # (batch_size, max adj_matrix size) / 1 on relation vertices, else 0
         else:
             mask = self.maskFromList(ents.size(), entlens)
             hx = ents.mean(dim=1)
@@ -61,17 +62,18 @@ class model(nn.Module):
         else:
             planlogits = None
 
-        cx = torch.tensor(hx)
-        # print(hx.size(),mask.size(),keys.size())
-        a = torch.zeros_like(hx)  # self.attn(hx.unsqueeze(1),keys,mask=mask).squeeze(1)
+        cx = torch.tensor(hx)  # (batch_size, 500)
+        a = torch.zeros_like(hx)
         if self.args.title:
             a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
+            # a2: (batch_size, 500) / c_s, context vector for each title
             a = torch.cat((a, a2), 1)
-        # e = outp.transpose(0,1)
-        e = self.emb(outp).transpose(0, 1)
+            # a: (batch_size, 1000) / cat of c_g, c_s (c_g computed below)
+
+        e = self.emb(outp).transpose(0, 1)  # (max abstract len, batch_size, 500)
         outputs = []
         for i, k in enumerate(e):
-            # k = self.emb(k)
+            # k: (batch_Size, 500) / i_th keyword's embedding in the target abstract
             if self.args.plan:
                 if schange[i].nonzero().size(0) > 0:
                     planplace[schange[i].nonzero().squeeze()] += 1
@@ -80,29 +82,37 @@ class model(nn.Module):
                             mask[j] = 0
                             m = b.sorder[j][planplace[j]]
                             mask[j][0][b.sorder[j][planplace[j]]] = 1
-            prev = torch.cat((a, k), 1)
-            hx, cx = self.lstm(prev, (hx, cx))
+            prev = torch.cat((a, k), 1)  # (batch_size, 1500)
+            hx, cx = self.lstm(prev, (hx, cx))  # compute new hx, cx with current (hx, cx, input abstract word)
             a = self.attn(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
+            # a: (batch_size, 500) / c_g, context vector for each graph (equation 6,7 in paper)
             if self.args.title:
                 a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
-                # a =  a + (self.mix(hx)*a2)
+                # a2: (batch_size, 500) / c_s, context vector for each title
                 a = torch.cat((a, a2), 1)
-            out = torch.cat((hx, a), 1)
+                # a: (batch_size, 1000) / cat of c_g, c_s (c_g computed below)
+
+            out = torch.cat((hx, a), 1)  # (batch_size, 1500) / [ h_t || c_t ] in paper
             outputs.append(out)
-        l = torch.stack(outputs, 1)
-        s = torch.sigmoid(self.switch(l))
-        o = self.out(l)
+        l = torch.stack(outputs, 1)  # (batch_size, max abstract len, 1500)
+        s = torch.sigmoid(self.switch(l))  # (batch_size, max abstract len, 1) / 1-p (p in equation 8 in paper)
+        o = self.out(l)  # (batch_size, max abstract len, target vocab size)
         o = torch.softmax(o, 2)
         o = s * o
         # compute copy attn
         _, z = self.mattn(l, (ents, entlens))
-        # z = torch.softmax(z,2)
+        # z: (batch_size, max_abstract_len, max_entity_num) / entities attended on each abstract word
         z = (1 - s) * z
         o = torch.cat((o, z), 2)
-        o = o + (1e-6 * torch.ones_like(o))
+        o = o + (1e-6 * torch.ones_like(o))  # add epsilon to avoid underflow
         return o.log(), z, planlogits
 
     def maskFromList(self, size, l):
+        '''
+        :param size: (batch_size, title_len, 500)
+        :param l: tensor of (batch_size,) / lengths of each example
+        :return: (batch_size, 1, title_len) / 각 row의 길이 + 1보다 더 큰 부분만 1, else 0
+        '''
         mask = torch.arange(0, size[1]).unsqueeze(0).repeat(size[0], 1).long().cuda()
         mask = (mask <= l.unsqueeze(1))
         mask = mask == 0
