@@ -101,7 +101,7 @@ class model(nn.Module):
         o = s * o
         # compute copy attn
         _, z = self.mattn(l, (ents, entlens))
-        # z: (batch_size, max_abstract_len, max_entity_num) / entities attended on each abstract word
+        # z: (batch_size, max_abstract_len, max_entity_num) / entities attended on each abstract word, then softmaxed
         z = (1 - s) * z
         o = torch.cat((o, z), 2)
         o = o + (1e-6 * torch.ones_like(o))  # add epsilon to avoid underflow

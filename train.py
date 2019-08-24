@@ -18,11 +18,10 @@ def update_lr(o, args, epoch):
 
 
 def train(m, o, ds, args):
-    print("Training", end="\t")
+    print("Training", end=" ")
     loss = 0
     ex = 0
-    trainorder = [('1', ds.t1_iter), ('2', ds.t2_iter), ('3', ds.t3_iter)]
-    # trainorder = reversed(trainorder)
+    trainorder = [('t1', ds.t1_iter), ('t2', ds.t2_iter), ('t3', ds.t3_iter)]
     shuffle(trainorder)
     for spl, train_iter in trainorder:
         print(spl)
@@ -30,11 +29,11 @@ def train(m, o, ds, args):
             if count % 100 == 99:
                 print(ex, "of like 40k -- current avg loss ", (loss / ex))
             b = ds.fixBatch(b)
-            p, z, planlogits = m(b)
-            p = p[:, :-1, :].contiguous()
+            p, z, planlogits = m(b)  # p: (batch_size, max abstract len, target vocab size + max entity num)
+            p = p[:, :-1, :].contiguous()  # exclude last words from each abstract
 
-            tgt = b.tgt[:, 1:].contiguous().view(-1).to(args.device)
-            l = F.nll_loss(p.contiguous().view(-1, p.size(2)), tgt, ignore_index=1)
+            tgt = b.tgt[:, 1:].contiguous().view(-1).to(args.device)  # exclude first word from each target
+            l = F.nll_loss(p.contiguous().view(-1, p.size(2)), tgt, ignore_index=1) 
             # copy coverage (each elt at least once)
             if args.cl:
                 z = z.max(1)[0]

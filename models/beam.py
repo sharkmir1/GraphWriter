@@ -27,7 +27,7 @@ class Beam():
     self.vocabsz = vsz
 
   def sort(self,norm=True):
-    if len(self.done)<self.beamsz:
+    if len(self.done) < self.beamsz:
       self.done.extend(self.beam)
       self.done = self.done[:self.beamsz]
     if norm:
