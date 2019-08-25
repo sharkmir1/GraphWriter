@@ -90,18 +90,19 @@ def main(args):
     print(args.device)
     m = m.to(args.device)
     if args.ckpt:
-        '''
-    with open(args.save+"/commandLineArgs.txt") as f:
-      clargs = f.read().strip().split("\n") 
-      argdif =[x for x in sys.argv[1:] if x not in clargs]
-      assert(len(argdif)==2); 
-      assert([x for x in argdif if x[0]=='-']==['-ckpt'])
-    '''
+        #
+        # with open(args.save+"/commandLineArgs.txt") as f:
+        #   clargs = f.read().strip().split("\n")
+        #   argdif =[x for x in sys.argv[1:] if x not in clargs]
+        #   assert(len(argdif)==2);
+        #   assert([x for x in argdif if x[0]=='-']==['-ckpt'])
+        #
         cpt = torch.load(args.ckpt)
         m.load_state_dict(cpt)
         starte = int(args.ckpt.split("/")[-1].split(".")[0]) + 1
         args.lr = float(args.ckpt.split("-")[-1])
         print('ckpt restored')
+
     else:
         with open(args.save + "/commandLineArgs.txt", 'w') as f:
             f.write("\n".join(sys.argv[1:]))

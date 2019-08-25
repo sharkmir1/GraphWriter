@@ -251,78 +251,14 @@ class dataset:
         dat_iter = data.Iterator(ds, 1, device=args.device, sort_key=lambda x: len(x.src), train=False, sort=False)
         return dat_iter
 
-    def rev_ents(self, batch):
-        vocab = self.NERD.vocab
-        es = []
-        for e in batch:
-            s = [vocab.itos[y].split(">")[0] + "_" + str(i) + ">" for i, y in enumerate(e) if
-                 vocab.itos[y] not in ['<pad>', '<eos>']]
-            es.append(s)
-        return es
-
     def reverse(self, x, ents):
         ents = ents[0]
         vocab = self.TGT.vocab
         s = ' '.join(
             [vocab.itos[y] if y < len(vocab.itos) else ents[y - len(vocab.itos)].upper() for j, y in enumerate(x)])
-        # s = ' '.join([vocab.itos[y] if y<len(vocab.itos) else ents[y-len(vocab.itos)] for j,y in enumerate(x)])
+
         if "<eos>" in s: s = s.split("<eos>")[0]
         return s
-
-    def relfix(self, relstrs):
-        mat = []
-        for x in relstrs:
-            pieces = x.strip().split(';')
-            x = [[int(y) + len(self.REL.special) for y in z.strip().split()] for z in pieces]
-            mat.append(torch.LongTensor(x).cuda())
-        lens = [x.size(0) for x in mat]
-        m = max(lens)
-        mat = [self.pad(x, m) for x in mat]
-        mat = torch.stack(mat, 0)
-        lens = torch.LongTensor(lens).cuda()
-        return mat, lens
-
-    def getEnts(self, entseq):
-        newents = []
-        lens = []
-        for i, l in enumerate(entseq):
-            l = l.tolist()
-            if self.enteos in l:
-                l = l[:l.index(self.enteos)]
-            tmp = []
-            while self.entspl in l:
-                tmp.append(l[:l.index(self.entspl)])
-                l = l[l.index(self.entspl) + 1:]
-            if l:
-                tmp.append(l)
-            lens.append(len(tmp))
-            tmplen = [len(x) for x in tmp]
-            m = max(tmplen)
-            tmp = [x + ([1] * (m - len(x))) for x in tmp]
-            newents.append((torch.LongTensor(tmp).cuda(), torch.LongTensor(tmplen).cuda()))
-        return newents, torch.LongTensor(lens).cuda()
-
-    def listToBatch(self, inp):
-        data, lens = zip(*inp)
-        print(lens);
-        exit()
-        lens = torch.tensor(lens)
-        m = torch.max(lens).item()
-        data = [self.pad(x.transpose(0, 1), m).transpose(0, 1) for x in data]
-        data = torch.cat(data, 0)
-        return data, lens
-
-    def rev_rel(self, ebatch, rbatch):
-        vocab = self.ENT.vocab
-        for i, ents in enumerate(ebatch):
-            es = []
-            for e in ents:
-                s = ' '.join([vocab.itos[y] for y in e])
-                es.append(s)
-            rels = rbatch[i]
-            for a, r, b in rels:
-                print(es[a], self.REL.itos[r], es[b])
-            print()
 
     def pad_list(self, l, ent=1):
         lens = [len(x) for x in l]
@@ -332,36 +268,100 @@ class dataset:
     def pad(self, tensor, length, ent=1):
         return torch.cat([tensor, tensor.new(length - tensor.size(0), *tensor.size()[1:]).fill_(ent)])
 
-    def seqentmat(self, entseq):
-        newents = []
-        lens = []
-        sms = []
-        for l in entseq:
-            l = l.tolist()
-            if self.enteos in l:
-                l = l[:l.index(self.enteos)]
-            tmp = []
-            while self.entspl in l:
-                tmp.append(l[:l.index(self.entspl)])
-                l = l[l.index(self.entspl) + 1:]
-            if l:
-                tmp.append(l)
-            lens.append(len(tmp))
-            m = max([len(x) for x in tmp])
-            sms.append(m)
-            tmp = [x + ([0] * (m - len(x))) for x in tmp]
-            newents.append(tmp)
-        sm = max(lens)
-        pm = max(sms)
-        for i in range(len(newents)):
-            tmp = torch.LongTensor(newents[i]).transpose(0, 1)
-            tmp = self.pad(tmp, pm, ent=0)
-            tmp = tmp.transpose(0, 1)
-            tmp = self.pad(tmp, sm, ent=0)
-            newents[i] = tmp
-        newents = torch.stack(newents, 0).cuda()
-        lens = torch.LongTensor(lens).cuda()
-        return newents, lens
+    # def rev_ents(self, batch):
+    #     vocab = self.NERD.vocab
+    #     es = []
+    #     for e in batch:
+    #         s = [vocab.itos[y].split(">")[0] + "_" + str(i) + ">" for i, y in enumerate(e) if
+    #              vocab.itos[y] not in ['<pad>', '<eos>']]
+    #         es.append(s)
+    #     return es
+
+    # def relfix(self, relstrs):
+    #     mat = []
+    #     for x in relstrs:
+    #         pieces = x.strip().split(';')
+    #         x = [[int(y) + len(self.REL.special) for y in z.strip().split()] for z in pieces]
+    #         mat.append(torch.LongTensor(x).cuda())
+    #     lens = [x.size(0) for x in mat]
+    #     m = max(lens)
+    #     mat = [self.pad(x, m) for x in mat]
+    #     mat = torch.stack(mat, 0)
+    #     lens = torch.LongTensor(lens).cuda()
+    #     return mat, lens
+    #
+    # def getEnts(self, entseq):
+    #     newents = []
+    #     lens = []
+    #     for i, l in enumerate(entseq):
+    #         l = l.tolist()
+    #         if self.enteos in l:
+    #             l = l[:l.index(self.enteos)]
+    #         tmp = []
+    #         while self.entspl in l:
+    #             tmp.append(l[:l.index(self.entspl)])
+    #             l = l[l.index(self.entspl) + 1:]
+    #         if l:
+    #             tmp.append(l)
+    #         lens.append(len(tmp))
+    #         tmplen = [len(x) for x in tmp]
+    #         m = max(tmplen)
+    #         tmp = [x + ([1] * (m - len(x))) for x in tmp]
+    #         newents.append((torch.LongTensor(tmp).cuda(), torch.LongTensor(tmplen).cuda()))
+    #     return newents, torch.LongTensor(lens).cuda()
+    #
+    # def listToBatch(self, inp):
+    #     data, lens = zip(*inp)
+    #     print(lens);
+    #     exit()
+    #     lens = torch.tensor(lens)
+    #     m = torch.max(lens).item()
+    #     data = [self.pad(x.transpose(0, 1), m).transpose(0, 1) for x in data]
+    #     data = torch.cat(data, 0)
+    #     return data, lens
+    #
+    # def rev_rel(self, ebatch, rbatch):
+    #     vocab = self.ENT.vocab
+    #     for i, ents in enumerate(ebatch):
+    #         es = []
+    #         for e in ents:
+    #             s = ' '.join([vocab.itos[y] for y in e])
+    #             es.append(s)
+    #         rels = rbatch[i]
+    #         for a, r, b in rels:
+    #             print(es[a], self.REL.itos[r], es[b])
+    #         print()
+
+    # def seqentmat(self, entseq):
+    #     newents = []
+    #     lens = []
+    #     sms = []
+    #     for l in entseq:
+    #         l = l.tolist()
+    #         if self.enteos in l:
+    #             l = l[:l.index(self.enteos)]
+    #         tmp = []
+    #         while self.entspl in l:
+    #             tmp.append(l[:l.index(self.entspl)])
+    #             l = l[l.index(self.entspl) + 1:]
+    #         if l:
+    #             tmp.append(l)
+    #         lens.append(len(tmp))
+    #         m = max([len(x) for x in tmp])
+    #         sms.append(m)
+    #         tmp = [x + ([0] * (m - len(x))) for x in tmp]
+    #         newents.append(tmp)
+    #     sm = max(lens)
+    #     pm = max(sms)
+    #     for i in range(len(newents)):
+    #         tmp = torch.LongTensor(newents[i]).transpose(0, 1)
+    #         tmp = self.pad(tmp, pm, ent=0)
+    #         tmp = tmp.transpose(0, 1)
+    #         tmp = self.pad(tmp, sm, ent=0)
+    #         newents[i] = tmp
+    #     newents = torch.stack(newents, 0).cuda()
+    #     lens = torch.LongTensor(lens).cuda()
+    #     return newents, lens
 
 
 if __name__ == "__main__":
