@@ -185,6 +185,7 @@ class model(nn.Module):
         beam = None
         for i in range(self.maxlen):
             op = self.emb_w_vertex(outp.clone(), b.nerd)
+            # tag로부터 index를 없애는 작업 => train할 때도 not indexed => indexed 로 train 되었기 때문.
             if self.args.plan:
                 schange = op == self.args.dottok
                 if schange.nonzero().size(0) > 0:

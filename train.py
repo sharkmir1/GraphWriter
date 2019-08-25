@@ -18,6 +18,10 @@ def update_lr(o, args, epoch):
 
 
 def train(m, o, ds, args):
+    """
+    input words => indices all removed from tags / trained to output indexed tags
+    target words => indices included
+    """
     print("Training", end=" ")
     loss = 0
     ex = 0
@@ -68,7 +72,7 @@ def evaluate(m, ds, args):
         l = F.nll_loss(p.contiguous().view(-1, p.size(2)), tgt, ignore_index=1)
         if ex == 0:
             g = p[0].max(1)[1]
-            print(ds.reverse(g, b.rawent[0]))
+            print(ds.reverse(g, b.rawent))
         loss += l.item() * len(b.tgt)
         ex += len(b.tgt)
     loss = loss / ex
