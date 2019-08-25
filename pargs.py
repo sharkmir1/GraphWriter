@@ -96,6 +96,7 @@ def pargs():
     args = parser.parse_args()
     args.gpu = "cpu" if args.gpu == -1 else "cuda:" + str(args.gpu)
     args.device = torch.device(args.gpu)
+    torch.cuda.set_device(args.gpu)
 
     args.options_file = "../elmo/elmo_2x2048_256_2048cnn_1xhighway_options.json"
     args.weight_file = "../elmo/elmo_2x2048_256_2048cnn_1xhighway_weights.hdf5"

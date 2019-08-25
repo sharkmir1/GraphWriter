@@ -94,16 +94,18 @@ class dataset:
 
         print('Building Vocab... ', end='')
 
+        # Output Vocab
+        # generics => indices are at the last of the vocab
+        # also includes indexed generics, (e.g. <method_0>)
         self.OUTP.build_vocab(train, min_freq=args.outunk)
         generics = ['<method>', '<material>', '<otherscientificterm>', '<metric>', '<task>']  # Entity Types
-
-        # perhaps change below 3 lines to self.OUTP.vocab.extend(generics)
         self.OUTP.vocab.itos.extend(generics)
         for x in generics:
             self.OUTP.vocab.stoi[x] = self.OUTP.vocab.itos.index(x)
 
         # Target Vocab
-        # Adds (e.g. <method_0> ~ <method_39> to target vocab)
+        # Same as Output Vocab, except for the indexed generics' indices
+        # len(vocab) = 11738 / <method_0>, <material_0> ... : 11738, <method_1>, ... : 11739 and so on.
         self.TGT.vocab = copy(self.OUTP.vocab)
         specials = "method material otherscientificterm metric task".split(" ")
         for x in specials:
@@ -112,6 +114,7 @@ class dataset:
                 self.TGT.vocab.stoi[s] = len(self.TGT.vocab.itos) + y
 
         # Entity Type Vocab
+        # Indices for not-indexed generics are same with those of output vocab
         self.NERD.build_vocab(train, min_freq=0)
         for x in generics:
             self.NERD.vocab.stoi[x] = self.OUTP.vocab.stoi[x]
@@ -232,8 +235,8 @@ class dataset:
         ds.fields["rawent"].is_target = False
         for x in ds:
             x.rawent = x.ent.split(" ; ")
-            x.ent = self.vec_ents(x.ent, self.ENT)
-            x.rel = self.mkGraphs(x.rel, len(x.ent[1]))
+            x.ent = self.vec_ents(x.ent, self.ENT)  # tuple of ((# of entities in x, max entity len), (# of entities))
+            x.rel = self.mkGraphs(x.rel, len(x.ent[1]))  # tuple of (adj, rel)
             if args.sparse:
                 x.rel = (self.adjToSparse(x.rel[0]), x.rel[1])
             x.tgt = x.out

@@ -24,7 +24,6 @@ def tgtreverse(tgts, entlist, order):
 def test(args, ds, m, epoch='cmdline'):
     args.vbsz = 1
     model = args.save.split("/")[-1]
-    ofn = "../outputs/" + model + ".beam_predictions"
     m.eval()
     k = 0
     data = ds.mktestset(args)
@@ -42,7 +41,7 @@ def test(args, ds, m, epoch='cmdline'):
     gen = ds.reverse(p,b.rawent)
     '''
         gen = m.beam_generate(b, beamsz=4, k=6)
-        gen.sort()
+        gen.sort()  # sort 'done' sequences by their scores
         gen = ds.reverse(gen.done[0].words, b.rawent)
         k += 1
         gold = ds.reverse(b.tgt[0][1:], b.rawent)

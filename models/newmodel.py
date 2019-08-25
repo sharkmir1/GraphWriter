@@ -119,22 +119,37 @@ class model(nn.Module):
         return mask
 
     def emb_w_vertex(self, outp, vertex):
-        mask = outp >= self.args.ntoks
+        """
+        e.g. assume outp: [[3, 100, 11744, 3]] / ntoks: 11738 / vertex: [~, ~, ~, ~, ~, ~, 11733, ~]
+        11744 accords to word among [<method_6>, ... <task_6>] (i.e. it is 6th entity in this row),
+        and in vertex, the 6th entity in this row accords to 11733. (which is <method>)
+
+        then function returns [[3, 100, 11733, 3]] as output.
+
+        :param outp: (beam_size,) / selected word for each beam (including indexed entities e.g. <method_0>)
+        :param vertex: (1, num of entity in this row) /
+                       indices of not-indexed entities (same as that in output vocab) + <eos>
+        :return: output with all indexed tags changed to not-indexed tags (only types)
+        """
+        mask = outp >= self.args.ntoks  # 1 if words are indexed tags (e.g. <method_0>)
         if mask.sum() > 0:
             idxs = (outp - self.args.ntoks)
             idxs = idxs[mask]
             verts = vertex.index_select(1, idxs)
             outp.masked_scatter_(mask, verts)
 
+        # if words all in output vocab, return same outp
         return outp
 
     def beam_generate(self, b, beamsz, k):
         if self.args.title:
-            tencs, _ = self.tenc(b.src)
-            tmask = self.maskFromList(tencs.size(), b.src[1]).unsqueeze(1)
-        ents = b.ent
+            tencs, _ = self.tenc(b.src)  # (1, title_len, 500)
+            tmask = self.maskFromList(tencs.size(), b.src[1]).unsqueeze(1)  # (1, 1, title_len)
+        ents = b.ent  # tuple of (ent, phlens, elens)
         entlens = ents[2]
         ents = self.le(ents)
+        # ents: (1, entity num, 500) / encoded hidden state of entities in b
+
         if self.graph:
             gents, glob, grels = self.ge(b.rel[0], b.rel[1], (ents, entlens))
             hx = glob
@@ -160,13 +175,13 @@ class model(nn.Module):
         else:
             planlogits = None
 
-        cx = torch.tensor(hx)
-        a = self.attn(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
+        cx = torch.tensor(hx)  # (beam size, 500)
+        a = self.attn(hx.unsqueeze(1), keys, mask=mask).squeeze(1)  # (1, 500) / c_g
         if self.args.title:
-            a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
-            a = torch.cat((a, a2), 1)
-        outputs = []
-        outp = torch.LongTensor(ents.size(0), 1).fill_(self.starttok).cuda()
+            a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)  # (1, 500) / c_s
+            a = torch.cat((a, a2), 1)  # (beam size, 1000) / c_t
+
+        outp = torch.LongTensor(ents.size(0), 1).fill_(self.starttok).cuda()  # initially, (1, 1) / start token
         beam = None
         for i in range(self.maxlen):
             op = self.emb_w_vertex(outp.clone(), b.nerd)
@@ -180,25 +195,24 @@ class model(nn.Module):
                             mask[j] = 0
                             m = sorder[j][planplace[j]]
                             mask[j][0][sorder[j][planplace[j]]] = 1
-            op = self.emb(op).squeeze(1)
-            prev = torch.cat((a, op), 1)
+            op = self.emb(op).squeeze(1)  # (beam size, 500)
+            prev = torch.cat((a, op), 1)  # (beam size, 1000)
             hx, cx = self.lstm(prev, (hx, cx))
             a = self.attn(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
             if self.args.title:
                 a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
-                # a =  a + (self.mix(hx)*a2)
-                a = torch.cat((a, a2), 1)
-            l = torch.cat((hx, a), 1).unsqueeze(1)
-            s = torch.sigmoid(self.switch(l))
-            o = self.out(l)
+                a = torch.cat((a, a2), 1)  # (beam size, 1000)
+            l = torch.cat((hx, a), 1).unsqueeze(1)  # (beam size, 1, 1500)
+            s = torch.sigmoid(self.switch(l))  # (beam size, 1, 1)
+            o = self.out(l)  # (beam size, 1, target vocab size)
             o = torch.softmax(o, 2)
             o = s * o
             # compute copy attn
             _, z = self.mattn(l, (ents, entlens))
             # z = torch.softmax(z,2)
             z = (1 - s) * z
-            o = torch.cat((o, z), 2)
-            o[:, :, 0].fill_(0)
+            o = torch.cat((o, z), 2)  # (beam size, 1, target vocab size + entity num)
+            o[:, :, 0].fill_(0)  # remove probability for special tokens <unk>, <init>
             o[:, :, 1].fill_(0)
             '''
       if beam:
@@ -211,26 +225,27 @@ class model(nn.Module):
 
             o = o + (1e-6 * torch.ones_like(o))
             decoded = o.log()
-            scores, words = decoded.topk(dim=2, k=k)
+            scores, words = decoded.topk(dim=2, k=k)  # (beam size, 1, k), (beam size, 1, k)
             if not beam:
                 beam = Beam(words.squeeze(), scores.squeeze(), [hx for i in range(beamsz)],
                             [cx for i in range(beamsz)], [a for i in range(beamsz)], beamsz, k, self.args.ntoks)
                 beam.endtok = self.endtok
                 beam.eostok = self.eostok
-                keys = keys.repeat(len(beam.beam), 1, 1)
-                mask = mask.repeat(len(beam.beam), 1, 1)
+                keys = keys.repeat(len(beam.beam), 1, 1)  # (beam size, adjacency matrix len, 500)
+                mask = mask.repeat(len(beam.beam), 1, 1)  # (beam size, 1, adjacency matrix len) => all 0?
                 if self.args.title:
-                    tencs = tencs.repeat(len(beam.beam), 1, 1)
-                    tmask = tmask.repeat(len(beam.beam), 1, 1)
+                    tencs = tencs.repeat(len(beam.beam), 1, 1)  # (beam size, title_len, 500)
+                    tmask = tmask.repeat(len(beam.beam), 1, 1)  # (1, 1, title_len)
                 if self.args.plan:
                     planplace = planplace.unsqueeze(0).repeat(len(beam.beam), 1)
                     sorder = sorder * len(beam.beam)
 
-                ents = ents.repeat(len(beam.beam), 1, 1)
-                entlens = entlens.repeat(len(beam.beam))
+                ents = ents.repeat(len(beam.beam), 1, 1)  # (beam size, entity num, 500)
+                entlens = entlens.repeat(len(beam.beam))  # (beam size,)
             else:
                 if not beam.update(scores, words, hx, cx, a):
                     break
+                # if beam size changes (i.e. any of beam ends), change size of weight matrices accordingly
                 keys = keys[:len(beam.beam)]
                 mask = mask[:len(beam.beam)]
                 if self.args.title:
@@ -241,9 +256,9 @@ class model(nn.Module):
                     sorder = sorder[0] * len(beam.beam)
                 ents = ents[:len(beam.beam)]
                 entlens = entlens[:len(beam.beam)]
-            outp = beam.getwords()
-            hx = beam.geth()
-            cx = beam.getc()
-            a = beam.getlast()
+            outp = beam.getwords()  # (beam size,) / next word for each beam
+            hx = beam.geth()  # (beam size, 500)
+            cx = beam.getc()  # (beam size, 500)
+            a = beam.getlast()  # (beam size, 1000)
 
         return beam
