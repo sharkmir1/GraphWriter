@@ -5,6 +5,7 @@ from models.list_encoder import list_encode, lseq_encode
 from models.last_graph import graph_encode
 from models.beam import Beam
 from models.splan import splanner
+import ipdb
 
 
 class model(nn.Module):
@@ -15,39 +16,40 @@ class model(nn.Module):
         self.emb = nn.Embedding(args.ntoks, args.hsz)
         self.lstm = nn.LSTMCell(args.hsz * cattimes, args.hsz)
         self.out = nn.Linear(args.hsz * cattimes, args.tgttoks)
-        self.le = list_encode(args)
-        self.entout = nn.Linear(args.hsz, 1)
+        self.ent_encoder = list_encode(args)
+        self.ent_out = nn.Linear(args.hsz, 1)
         self.switch = nn.Linear(args.hsz * cattimes, 1)
-        self.attn = MultiHeadAttention(args.hsz, args.hsz, args.hsz, h=4, dropout_p=args.drop)
+        self.attn_graph = MultiHeadAttention(args.hsz, args.hsz, args.hsz, h=args.heads, dropout_p=args.drop)
         self.mattn = MatrixAttn(args.hsz * cattimes, args.hsz)
-        self.graph = (args.model in ['graph', 'gat', 'gtrans'])
+        self.is_graph = (args.model in ['graph', 'gat', 'gtrans'])
         print(args.model)
-        if self.graph:
-            self.ge = graph_encode(args)
+        if self.is_graph:
+            self.graph_encoder = graph_encode(args) # graph transformer
         if args.plan:
             self.splan = splanner(args)
         if args.title:
-            self.tenc = lseq_encode(args, toks=args.ninput)  # title encoder
-            self.attn2 = MultiHeadAttention(args.hsz, args.hsz, args.hsz, h=4, dropout_p=args.drop)
+            self.title_encoder = lseq_encode(args, toks=args.ninput)  # title encoder
+            self.attn_title = MultiHeadAttention(args.hsz, args.hsz, args.hsz, h=args.heads, dropout_p=args.drop)
             self.mix = nn.Linear(args.hsz, 1)
 
     def forward(self, b):
         if self.args.title:
-            tencs, _ = self.tenc(b.src)
-            tmask = self.maskFromList(tencs.size(), b.src[1]).unsqueeze(1)
-        outp, _ = b.out
+            title_encoded, _ = self.title_encoder(b.src)
+            title_mask = self.mask_from_list(title_encoded.size(), b.src[1]).unsqueeze(1) # (bsz, 1, max_title_len)
+        outp, _ = b.out # target abstract
         ents = b.ent  # (ent, phlens, elens) => refer to fixBatch in lastDataset.py
         entlens = ents[2]
-        ents = self.le(ents)
+        ents = self.ent_encoder(ents)
         # ents: (batch_size (num of rows), max entity num, 500) / encoded hidden state of entities in batch
 
-        if self.graph:
-            gents, glob, grels = self.ge(b.rel[0], b.rel[1], (ents, entlens))
+        if self.is_graph:
+            # b.rel[0]: list (len: bsz) of adjacency matrices, each (N, N); N = n_entity + 1(global) + 2*n_rel
+            # b.rel[1]: list (len: bsz) of relations, each (1 + 2*n_rel)
+            glob, keys, mask = self.graph_encoder(b.rel[0], b.rel[1], (ents, entlens)) # glob, nodes, node_mask
             hx = glob
-            keys, mask = grels
             mask = mask == 0
         else:
-            mask = self.maskFromList(ents.size(), entlens)
+            mask = self.mask_from_list(ents.size(), entlens)
             hx = ents.mean(dim=1)
             keys = ents
         mask = mask.unsqueeze(1)
@@ -61,14 +63,15 @@ class model(nn.Module):
         else:
             planlogits = None
 
-        cx = torch.tensor(hx)
-        # print(hx.size(),mask.size(),keys.size())
-        a = torch.zeros_like(hx)  # self.attn(hx.unsqueeze(1),keys,mask=mask).squeeze(1)
+        cx = torch.tensor(hx) # (bsz, d_hidden)
+        a = torch.zeros_like(hx)
+
         if self.args.title:
-            a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
-            a = torch.cat((a, a2), 1)
-        # e = outp.transpose(0,1)
-        e = self.emb(outp).transpose(0, 1)
+            a_title = self.attn_title(hx.unsqueeze(1), title_encoded, mask=title_mask).squeeze(1)
+            a = torch.cat((a, a_title), 1)
+
+        ### Decoding
+        e = self.emb(outp).transpose(0, 1) # (max_abstract_len, bsz, d_hidden)
         outputs = []
         for i, k in enumerate(e):
             # k = self.emb(k)
@@ -82,13 +85,19 @@ class model(nn.Module):
                             mask[j][0][b.sorder[j][planplace[j]]] = 1
             prev = torch.cat((a, k), 1)
             hx, cx = self.lstm(prev, (hx, cx))
-            a = self.attn(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
+
+            # Attend to graph
+            a = self.attn_graph(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
+
+            # Attend to title (optional)
             if self.args.title:
-                a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
-                # a =  a + (self.mix(hx)*a2)
-                a = torch.cat((a, a2), 1)
+                a_title = self.attn_title(hx.unsqueeze(1), title_encoded, mask=title_mask).squeeze(1)
+                # a =  a + (self.mix(hx)*a_title)
+                a = torch.cat((a, a_title), 1)
+
             out = torch.cat((hx, a), 1)
             outputs.append(out)
+
         l = torch.stack(outputs, 1)
         s = torch.sigmoid(self.switch(l))
         o = self.out(l)
@@ -102,7 +111,7 @@ class model(nn.Module):
         o = o + (1e-6 * torch.ones_like(o))
         return o.log(), z, planlogits
 
-    def maskFromList(self, size, l):
+    def mask_from_list(self, size, l):
         mask = torch.arange(0, size[1]).unsqueeze(0).repeat(size[0], 1).long().cuda()
         mask = (mask <= l.unsqueeze(1))
         mask = mask == 0
@@ -120,19 +129,19 @@ class model(nn.Module):
 
     def beam_generate(self, b, beamsz, k):
         if self.args.title:
-            tencs, _ = self.tenc(b.src)
-            tmask = self.maskFromList(tencs.size(), b.src[1]).unsqueeze(1)
+            title_encoded, _ = self.title_encoder(b.src)
+            title_mask = self.mask_from_list(title_encoded.size(), b.src[1]).unsqueeze(1)
         ents = b.ent
         entlens = ents[2]
-        ents = self.le(ents)
-        if self.graph:
-            gents, glob, grels = self.ge(b.rel[0], b.rel[1], (ents, entlens))
+        ents = self.ent_encoder(ents)
+        if self.is_graph:
+            graph_ents, glob, graph_rels = self.graph_encoder(b.rel[0], b.rel[1], (ents, entlens))
             hx = glob
             # hx = ents.max(dim=1)[0]
-            keys, mask = grels
+            keys, mask = graph_rels
             mask = mask == 0
         else:
-            mask = self.maskFromList(ents.size(), entlens)
+            mask = self.mask_from_list(ents.size(), entlens)
             hx = ents.max(dim=1)[0]
             keys = ents
         mask = mask.unsqueeze(1)
@@ -151,10 +160,10 @@ class model(nn.Module):
             planlogits = None
 
         cx = torch.tensor(hx)
-        a = self.attn(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
+        a = self.attn_graph(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
         if self.args.title:
-            a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
-            a = torch.cat((a, a2), 1)
+            a_title = self.attn_title(hx.unsqueeze(1), title_encoded, mask=title_mask).squeeze(1)
+            a = torch.cat((a, a_title), 1)
         outputs = []
         outp = torch.LongTensor(ents.size(0), 1).fill_(self.starttok).cuda()
         beam = None
@@ -173,11 +182,11 @@ class model(nn.Module):
             op = self.emb(op).squeeze(1)
             prev = torch.cat((a, op), 1)
             hx, cx = self.lstm(prev, (hx, cx))
-            a = self.attn(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
+            a = self.attn_graph(hx.unsqueeze(1), keys, mask=mask).squeeze(1)
             if self.args.title:
-                a2 = self.attn2(hx.unsqueeze(1), tencs, mask=tmask).squeeze(1)
-                # a =  a + (self.mix(hx)*a2)
-                a = torch.cat((a, a2), 1)
+                a_title = self.attn_title(hx.unsqueeze(1), title_encoded, mask=title_mask).squeeze(1)
+                # a =  a + (self.mix(hx)*a_title)
+                a = torch.cat((a, a_title), 1)
             l = torch.cat((hx, a), 1).unsqueeze(1)
             s = torch.sigmoid(self.switch(l))
             o = self.out(l)
@@ -210,8 +219,8 @@ class model(nn.Module):
                 keys = keys.repeat(len(beam.beam), 1, 1)
                 mask = mask.repeat(len(beam.beam), 1, 1)
                 if self.args.title:
-                    tencs = tencs.repeat(len(beam.beam), 1, 1)
-                    tmask = tmask.repeat(len(beam.beam), 1, 1)
+                    title_encoded = title_encoded.repeat(len(beam.beam), 1, 1)
+                    title_mask = title_mask.repeat(len(beam.beam), 1, 1)
                 if self.args.plan:
                     planplace = planplace.unsqueeze(0).repeat(len(beam.beam), 1)
                     sorder = sorder * len(beam.beam)
@@ -224,8 +233,8 @@ class model(nn.Module):
                 keys = keys[:len(beam.beam)]
                 mask = mask[:len(beam.beam)]
                 if self.args.title:
-                    tencs = tencs[:len(beam.beam)]
-                    tmask = tmask[:len(beam.beam)]
+                    title_encoded = title_encoded[:len(beam.beam)]
+                    title_mask = title_mask[:len(beam.beam)]
                 if self.args.plan:
                     planplace = planplace[:len(beam.beam)]
                     sorder = sorder[0] * len(beam.beam)

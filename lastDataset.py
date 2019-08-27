@@ -3,7 +3,7 @@ from collections import Counter
 from torchtext import data
 import pargs as arg
 from copy import copy
-
+import ipdb
 
 class dataset:
     def __init__(self, args):
@@ -27,7 +27,7 @@ class dataset:
             for l in f:
                 ents += " " + l.split("\t")[1]
         itos = sorted(list(set(ents.split(" "))))
-        itos[0] == "<unk>";
+        itos[0] == "<unk>"
         itos[1] == "<pad>"
         stoi = {x: i for i, x in enumerate(itos)}
         return itos, stoi
@@ -139,7 +139,6 @@ class dataset:
         return [x.to(self.args.device) for x in l]
 
     def fixBatch(self, b):
-
         ent, phlens = zip(*b.ent)  # b.ent: (batch_size,) / list of x.ent
         # ent: (batch_size,) / tuple of (num of entity, longest entity len) per each dataset row
         # phlens: (batch_size,) / tuple of (num of entity) per each dataset row i.e. 각 row의 각 entity의 단어 개수
@@ -248,14 +247,14 @@ class dataset:
         dat_iter = data.Iterator(ds, 1, device=args.device, sort_key=lambda x: len(x.src), train=False, sort=False)
         return dat_iter
 
-    def rev_ents(self, batch):
-        vocab = self.NERD.vocab
-        es = []
-        for e in batch:
-            s = [vocab.itos[y].split(">")[0] + "_" + str(i) + ">" for i, y in enumerate(e) if
-                 vocab.itos[y] not in ['<pad>', '<eos>']]
-            es.append(s)
-        return es
+    # def rev_ents(self, batch):
+    #     vocab = self.NERD.vocab
+    #     es = []
+    #     for e in batch:
+    #         s = [vocab.itos[y].split(">")[0] + "_" + str(i) + ">" for i, y in enumerate(e) if
+    #              vocab.itos[y] not in ['<pad>', '<eos>']]
+    #         es.append(s)
+    #     return es
 
     def reverse(self, x, ents):
         ents = ents[0]
@@ -301,7 +300,7 @@ class dataset:
 
     def listToBatch(self, inp):
         data, lens = zip(*inp)
-        print(lens);
+        print(lens)
         exit()
         lens = torch.tensor(lens)
         m = torch.max(lens).item()

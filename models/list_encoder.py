@@ -4,7 +4,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from allennlp.modules.elmo import Elmo
-
+import ipdb
 
 class lseq_encode(nn.Module):
 
@@ -22,15 +22,17 @@ class lseq_encode(nn.Module):
         nn.init.xavier_normal_(self.lemb.weight)
         self.input_drop = nn.Dropout(args.embdrop)
 
-        self.encoder = nn.LSTM(sz, args.hsz // 2, bidirectional=True, num_layers=args.layers, batch_first=True)
+        # dim for each direction: d_hidden/2
+        self.encoder = nn.LSTM(sz, args.hsz//2, bidirectional=True, num_layers=args.layers, batch_first=True)
 
     def _cat_directions(self, h):
         h = torch.cat([h[0:h.size(0):2], h[1:h.size(0):2]], 2)
         return h
 
     def forward(self, inp):
-        l, ilens = inp  # l: (batch_size, title_len) / ilens: (batch_size)
-        learned_emb = self.lemb(l)
+        """ Sequence-form; title, entity-phrase (vertex).. """
+        l, ilens = inp  # (bsz, seq_len), (bsz)
+        learned_emb = self.lemb(l) # (bsz, seq_len, d_embed)
         learned_emb = self.input_drop(learned_emb)
         if self.use_elmo:
             elmo_emb = self.elmo(l, word_inputs=l)
@@ -46,8 +48,7 @@ class lseq_encode(nn.Module):
         h = h.transpose(0, 1)
         h = torch.zeros_like(h).scatter(0, idxs.unsqueeze(1).unsqueeze(1).expand(-1, h.size(1), h.size(2)), h)
 
-        # e: (batch_size, title_len, hsz) / h: (batch_size, layer_size * 2 (=4), hsz//2)
-        return e, h
+        return e, h # (bsz, seq_len, d_embed), (bsz, n_layer*2, d_hidden//2)
 
 
 class list_encode(nn.Module):
@@ -63,11 +64,19 @@ class list_encode(nn.Module):
 
     def forward(self, batch, pad=True):
         batch, phlens, batch_lens = batch
-        batch_lens = tuple(batch_lens.tolist())
-        _, enc = self.seqenc((batch, phlens))  # enc: (batch_size, 4, 250)
-        enc = enc[:, 2:]  # enc: (batch_size, 2, 250)
-        enc = torch.cat([enc[:, i] for i in range(enc.size(1))], 1)  # enc: (batch_size, 500) / last hidden state
-        m = max(batch_lens)  # max number of entities in a row
+
+        # number of entities, for each sample(row)
+        batch_lens = tuple(batch_lens.tolist()) 
+
+        # Encode entity-phrases
+        _, enc = self.seqenc((batch, phlens))  # enc: (bsz, n_layer*2, d_hidden//2)
+
+        # Last layer's hidden
+        enc = enc[:, -2:]  # (bsz, n_layer, d_hidden//2)
+        enc = torch.cat([enc[:, i] for i in range(enc.size(1))], 1)  # (bsz, d_hidden)
+        
+        m = max(batch_lens)
         encs = [self.pad(x, m) for x in enc.split(batch_lens)]  # split chunked batch into tensors of each dataset row
         out = torch.stack(encs, 0)
-        return out  # (batch_size (num of rows) , m, 500)
+
+        return out  # (bsz (num of rows), max_n_entity, d_hidden)

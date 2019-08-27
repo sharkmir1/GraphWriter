@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import ipdb
 
 class MatrixAttn(nn.Module):
 
@@ -227,12 +228,16 @@ class MultiHeadAttention(nn.Module):
         self.ln = nn.LayerNorm(num_units)
 
     def forward(self, query, keys, mask=None):
+        # query: (n_node, 1, d_hidden)
+        # keys: (n_node, n_node, d_hidden)
+        # mask: (n_node, 1, n_node)
         Q = self.query_layer(query).cuda()
         K = self.key_layer(keys).cuda()
         V = self.value_layer(keys).cuda()
 
         # split each Q, K and V into h different values from dim 2
         # and then merge them back together in dim 0
+        # K: (n_node, n_node, d_hidden) => (n_node*n_head, n_node, d_hidden/n_head)
         # e.g. K: (27, 27, 500) => (108, 27, 125)
         chunk_size = int(self._num_units / self._h)
         Q = torch.cat(Q.split(split_size=chunk_size, dim=2), dim=0)
@@ -241,8 +246,8 @@ class MultiHeadAttention(nn.Module):
 
         # calculate QK^T
         # e.g. = (108, 1, 27)
-        attention = torch.matmul(Q, K.transpose(1, 2))
-        # normalize with sqrt(dk)
+        attention = torch.matmul(Q, K.transpose(1, 2)) # (n_node*n_head, 1, n_node)
+        # scale with sqrt(d_k)
         attention = attention / torch.sqrt(self._key_dim).cuda()
 
         if mask is not None:
