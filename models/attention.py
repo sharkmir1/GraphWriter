@@ -1,24 +1,31 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 import ipdb
 
-class MatrixAttn(nn.Module):
-
-    def __init__(self, linin, linout):
+class MatrixAttention(nn.Module):
+    def __init__(self, d_in, d_out):
         super().__init__()
-        self.attnlin = nn.Linear(linin, linout)
+        self.proj = nn.Linear(d_in, d_out)
 
-    def forward(self, dec, emb):
-        emb, elen = emb
-        emask = torch.arange(0, emb.size(1)).unsqueeze(0).repeat(emb.size(0), 1).long().cuda()
-        emask = (emask >= elen.unsqueeze(1)).unsqueeze(1)
-        decsmall = self.attnlin(dec)
-        unnorm = torch.bmm(decsmall, emb.transpose(1, 2))
-        unnorm.masked_fill_(emask, -float('inf'))
-        attn = F.softmax(unnorm, dim=2)
-        out = torch.bmm(attn, emb)
+    def forward(self, query, keys):
+        # query: [h_t || c_t]; (bsz, max_abstract_len, d_hidden*3)
+        # keys: embedded x
+        keys, key_lens = keys # (bsz, max entity num, d_hidden), (bsz,)
+        bsz, max_n_elem, _ = keys.size()
+        # TODO
+        mask = torch.arange(0, max_n_elem).unsqueeze(0).repeat(bsz, 1).long().cuda()
+        mask = (mask >= key_lens.unsqueeze(1)).unsqueeze(1) # (bsz, max entity num)
+
+        # Project query (d_hidden*3 or d_hidden*2) to fixed size (d_hidden)
+        query = self.proj(query) # (bsz, max abstract len, d_hidden)
+
+        attn = torch.bmm(query, keys.transpose(1, 2)) # (bsz, max abstract len, max entity num)
+        attn.masked_fill_(mask, -float('inf'))
+        attn = F.softmax(attn, dim=-1)
+        out = torch.bmm(attn, keys)
         return out, attn
 
 
@@ -199,78 +206,63 @@ class LuongAttention(nn.Module):
 
 class MultiHeadAttention(nn.Module):
     def __init__(self,
-                 query_dim,
-                 key_dim,
-                 num_units,
-                 dropout_p=0.5,
-                 h=8,
-                 is_masked=False):
+                 d_model,
+                 n_head=8,
+                 dropout_p=0.5):
         super(MultiHeadAttention, self).__init__()
+        assert d_model % n_head == 0, 'd_model must be dividable by n_head'
 
-        if query_dim != key_dim:
-            raise ValueError("query_dim and key_dim must be the same")
-        if num_units % h != 0:
-            raise ValueError("num_units must be dividable by h")
-        if query_dim != num_units:
-            raise ValueError("to employ residual connection, the number of "
-                             "query_dim and num_units must be the same")
+        self.d_model = d_model 
+        self.n_head = n_head
+        self.d_head = d_model // n_head
+        self.scale_factor = 1 / math.sqrt(d_model)
+        # self._key_dim = torch.tensor(key_dim, requires_grad=False).float()
 
-        self._num_units = num_units  # value_dim
-        self._h = h
-        self._key_dim = torch.tensor(key_dim, requires_grad=False).float()
-        self._dropout_p = dropout_p
-        self._is_masked = is_masked
-
-        self.query_layer = nn.Linear(query_dim, num_units, bias=False)
-        self.key_layer = nn.Linear(key_dim, num_units, bias=False)
-        self.value_layer = nn.Linear(key_dim, num_units, bias=False)
-        self.bn = nn.BatchNorm1d(num_units)
-        self.ln = nn.LayerNorm(num_units)
+        self.query_layer = nn.Linear(d_model, d_model, bias=False)
+        self.key_layer = nn.Linear(d_model, d_model, bias=False)
+        self.value_layer = nn.Linear(d_model, d_model, bias=False)
+        self.drop = nn.Dropout(dropout_p)
 
     def forward(self, query, keys, mask=None):
-        # query: (n_node, 1, d_hidden)
-        # keys: (n_node, n_node, d_hidden)
-        # mask: (n_node, 1, n_node)
-        Q = self.query_layer(query).cuda()
+        # inputs: v_tilde_l (last layer's vertex representation)
+        # query: (n_node, 1, d_hidden); v_i
+        # keys: (n_node, n_node, d_hidden); v_j
+        # mask: (n_node, 1, n_node); 1 for unconnected nodes
+        Q = self.query_layer(query).cuda() # TODO: query, key를 미리 cuda로 보내놓기?
         K = self.key_layer(keys).cuda()
         V = self.value_layer(keys).cuda()
 
         # split each Q, K and V into h different values from dim 2
         # and then merge them back together in dim 0
         # K: (n_node, n_node, d_hidden) => (n_node*n_head, n_node, d_hidden/n_head)
-        # e.g. K: (27, 27, 500) => (108, 27, 125)
-        chunk_size = int(self._num_units / self._h)
-        Q = torch.cat(Q.split(split_size=chunk_size, dim=2), dim=0)
-        K = torch.cat(K.split(split_size=chunk_size, dim=2), dim=0)
-        V = torch.cat(V.split(split_size=chunk_size, dim=2), dim=0)
+        # e.g. K: (27, 27, 500) => (108, 27, 125) with 4 heads
+        Q = torch.cat(Q.split(split_size=self.d_head, dim=-1), dim=0)
+        K = torch.cat(K.split(split_size=self.d_head, dim=-1), dim=0)
+        V = torch.cat(V.split(split_size=self.d_head, dim=-1), dim=0)
 
-        # calculate QK^T
-        # e.g. = (108, 1, 27)
-        attention = torch.matmul(Q, K.transpose(1, 2)) # (n_node*n_head, 1, n_node)
-        # scale with sqrt(d_k)
-        attention = attention / torch.sqrt(self._key_dim).cuda()
+        attn = torch.matmul(Q, K.transpose(1, 2)) # (n_node*n_head, 1, n_node) e.g. (108, 1, 27)
+        attn = attn * self.scale_factor
 
         if mask is not None:
-            #  replace attention of entries without edge, with -inf
-            mask = mask
-            mask = mask.repeat(self._h, 1, 1)  # e.g. mask: (27, 1, 27) => (108, 1, 27)
-            attention.masked_fill_(mask, -float('inf'))
-        attention = F.softmax(attention, dim=-1)
-        # apply dropout
-        attention = F.dropout(attention, self._dropout_p)
-        # multiply it with V
-        # e.g. = (108, 1, 125)
-        attention = torch.matmul(attention, V)
-        # convert attention back to its input original size
-        restore_chunk_size = int(attention.size(0) / self._h)
-        attention = torch.cat(
-            attention.split(split_size=restore_chunk_size, dim=0), dim=2)
-        # residual connection
-        attention += query  # (27, 1, 500)
-        # apply batch normalization
-        # attention = self.bn(attention.transpose(1, 2)).transpose(1, 2)
-        # apply layer normalization
-        # attention = self.ln(attention)
+            # for graph attention: mask out nodes that are unconnected with the query node 
+            mask = mask.repeat(self.n_head, 1, 1)  # e.g. mask: (27, 1, 27) => (108, 1, 27)
+            attn.masked_fill_(mask, -float('inf'))
 
-        # NOTE no layer_norm here
-        return attention  # V_caret in paper
+        ## compute alpha (eq.2)
+        attn = F.softmax(attn, dim=-1)
+        attn = self.drop(attn)
+
+        ## compute v_caret (eq.1)
+        attn = torch.matmul(attn, V) # e.g. (108, 1, 125)
+        # convert attention back to its input original size
+        n_node = int(attn.size(0) / self.n_head) 
+        attn = torch.cat(attn.split(split_size=n_node, dim=0), dim=-1)
+        # residual connection
+        attn += query # e.g. (27, 1, 500)
+
+        # apply batch normalization
+        # attn = self.bn(attn.transpose(1, 2)).transpose(1, 2)
+        # apply layer normalization
+        # attn = self.ln(attn)
+
+        return attn

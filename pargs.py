@@ -3,8 +3,9 @@ import argparse
 
 
 def dynArgs(args, ds):
+   # TODO: WHY DIFFERENT?
     args.ntoks = len(ds.OUTP.vocab)
-    args.tgttoks = len(ds.TGT.vocab)
+    args.n_tgt_vocab = len(ds.TGT.vocab)
     args.ninput = len(ds.INP.vocab)
     args.vtoks = len(ds.ENT.itos)
     args.rtoks = len(ds.REL.itos)
@@ -45,16 +46,16 @@ def pargs():
 
     # optim
     '''
-  parser.add_argument('-lr_warmup', type=float, default=0.002)
-  parser.add_argument('-lr_schedule', type=str, default='warmup_linear')
-  parser.add_argument("-lr",default=6.25e-5,type=float)
-  parser.add_argument("-sgdlr",default=0.1,type=float)
-  parser.add_argument('-b1', type=float, default=0.9)
-  parser.add_argument('-b2', type=float, default=0.999)
-  parser.add_argument('-e', type=float, default=1e-8)
-  parser.add_argument('-l2', type=float, default=0.01)
-  parser.add_argument('-vector_l2', action='store_true')
-  '''
+    parser.add_argument('-lr_warmup', type=float, default=0.002)
+    parser.add_argument('-lr_schedule', type=str, default='warmup_linear')
+    parser.add_argument("-lr",default=6.25e-5,type=float)
+    parser.add_argument("-sgdlr",default=0.1,type=float)
+    parser.add_argument('-b1', type=float, default=0.9)
+    parser.add_argument('-b2', type=float, default=0.999)
+    parser.add_argument('-e', type=float, default=1e-8)
+    parser.add_argument('-l2', type=float, default=0.01)
+    parser.add_argument('-vector_l2', action='store_true')
+    '''
     parser.add_argument("-lr", default=0.1, type=float)
     parser.add_argument("-lrhigh", default=0.5, type=float)
     parser.add_argument("-lrstep", default=4, type=int)
