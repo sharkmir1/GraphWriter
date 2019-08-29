@@ -3,7 +3,6 @@ import numpy as np
 from torch import nn
 from beam import Beam
 import models.encoders as encoders
-from models.attn import attn
 from allennlp.modules.seq2seq_encoders.stacked_self_attention import StackedSelfAttentionEncoder
 
 class model(nn.Module):
@@ -21,10 +20,28 @@ class model(nn.Module):
     decoded = self.decoder(outp,h,c,None,ents,rels)
     return decoded
 
-  def beam_generate(self,title,entities,graph,nerd,beamsz=4,k=4):
+  def beam_generate(self,title,entities,graph,nerd,width=4,k=4):
     h,c,tembs,vembs,gembs = self.encoder(title,entities,graph)
-    beam = self.decoder.beam_generate(h,c,tembs,vembs,gembs,nerd,beamsz,k)
+    beam = self.decoder.beam_generate(h,c,tembs,vembs,gembs,nerd,width,k)
     return beam
+
+class GATAttn(nn.Module):
+
+  def __init__(self,linin,linout):
+    super(attn, self).__init__()
+    self.attnlin = nn.Linear(linin,linout)
+
+  def forward(self,dec,emb):
+    emb,emask = emb #; elen = elen.cuda()
+    emask = (emask == 0).unsqueeze(1)
+    #emask = torch.arange(0,emb.size(1)).unsqueeze(0).repeat(emb.size(0),1).long().cuda()
+    #emask = (emask >= elen.unsqueeze(1)).unsqueeze(1)
+    decsmall = self.attnlin(dec)
+    unnorm = torch.bmm(decsmall,emb.transpose(1,2))
+    unnorm.masked_fill_(emask,-float('inf'))
+    attn = F.softmax(unnorm,dim=2)
+    out = torch.bmm(attn,emb)
+    return out, attn
 
 
 class decode(nn.Module):
@@ -32,10 +49,10 @@ class decode(nn.Module):
     super().__init__()
     self.args = args
     #attns
-    self.t_attn = attn(args.hsz,args.hsz)
-    self.e_attn = attn(args.hsz,args.hsz)
-    self.g_attn = attn(args.hsz,args.hsz)
-    self.h_attn = attn(args.hsz,args.hsz)
+    self.t_attn = GATAttn(args.hsz,args.hsz)
+    self.e_attn = GATAttn(args.hsz,args.hsz)
+    self.g_attn = GATAttn(args.hsz,args.hsz)
+    self.h_attn = GATAttn(args.hsz,args.hsz)
     # decoder
     self.Embedding = nn.Embedding(args.ntoks,args.hsz)
     #nn.init.xavier_normal_(self.Embedding.weight)
@@ -101,7 +118,7 @@ class decode(nn.Module):
 
     return outp
 
-  def beam_generate(self,h,c,tembs,vembs,gembs,nerd,beamsz,k):
+  def beam_generate(self,h,c,tembs,vembs,gembs,nerd,width,k):
     #h,c,tembs,vembs,gembs,rembs = self.encode_inputs(title,entities,graph)
     #h,c,tembs,vembs,gembs = self.encode_inputs(title,entities,graph)
     embs = [x for x in [(self.t_attn,tembs),(self.g_attn,gembs),(self.e_attn,vembs)] if x[1] is not None]
@@ -134,8 +151,8 @@ class decode(nn.Module):
       scores, words = decoded.topk(dim=2,k=k)
       #scores = scores.transpose(0,1); words = words.transpose(0,1)
       if not beam:
-        beam = Beam(words.squeeze(),scores.squeeze(),[h for i in range(beamsz)],
-                  [c for i in range(beamsz)],[last for i in range(beamsz)],beamsz,k)
+        beam = Beam(words.squeeze(),scores.squeeze(),[h for i in range(width)],
+                  [c for i in range(width)],[last for i in range(width)],width,k)
         beam.endtok = self.endtok
         newembs = []
         for a,x in embs:

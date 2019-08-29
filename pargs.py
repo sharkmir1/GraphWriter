@@ -39,7 +39,7 @@ def pargs():
 
     # training and loss
     parser.add_argument("-cl", default=None, type=float)
-    parser.add_argument("-bsz", default=32, type=int)
+    parser.add_argument("-bsz", default=[32, 24, 8], type=int, help='should be in list form')
     parser.add_argument("-vbsz", default=32, type=int)
     parser.add_argument("-epochs", default=20, type=int)
     parser.add_argument("-clip", default=1, type=float)
@@ -69,8 +69,10 @@ def pargs():
     parser.add_argument("-save", required=True)
     parser.add_argument("-outunk", default=5, type=int)
     parser.add_argument("-entunk", default=5, type=int)
-    parser.add_argument("-datadir", default="data/")
-    parser.add_argument("-data", default="preprocessed.train.tsv")
+    parser.add_argument("-datadir", default="data")
+    parser.add_argument("-trainfile", default="preprocessed.train.tsv")
+    parser.add_argument("-validfile", default="preprocessed.val.tsv")
+    parser.add_argument("-testfile", default="preprocessed.test.tsv")
     parser.add_argument("-relvocab", default="relations.vocab", type=str)
     parser.add_argument("-savevocab", default=None, type=str)
     parser.add_argument("-loadvocab", default=None, type=str)
@@ -97,6 +99,7 @@ def pargs():
     args = parser.parse_args()
     args.gpu = "cpu" if args.gpu == -1 else "cuda:" + str(args.gpu)
     args.device = torch.device(args.gpu)
+    torch.cuda.set_device(args.gpu)
 
     args.options_file = "../elmo/elmo_2x2048_256_2048cnn_1xhighway_options.json"
     args.weight_file = "../elmo/elmo_2x2048_256_2048cnn_1xhighway_weights.hdf5"

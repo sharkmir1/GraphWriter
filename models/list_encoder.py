@@ -31,7 +31,7 @@ class lseq_encode(nn.Module):
 
     def forward(self, inp):
         """ Sequence-form; title, entity-phrase (vertex).. """
-        l, ilens = inp  # (bsz, seq_len), (bsz)
+        l, lens = inp  # (bsz, seq_len), (bsz)
         learned_emb = self.lemb(l) # (bsz, seq_len, d_embed)
         learned_emb = self.input_drop(learned_emb)
         if self.use_elmo:
@@ -39,7 +39,7 @@ class lseq_encode(nn.Module):
             e = torch.cat((elmo_emb['elmo_representations'][0], learned_emb), 2)
         else:
             e = learned_emb
-        sent_lens, idxs = ilens.sort(descending=True)
+        sent_lens, idxs = lens.sort(descending=True)
         e = e.index_select(0, idxs)
         e = pack_padded_sequence(e, sent_lens, batch_first=True)
         e, (h, c) = self.encoder(e)

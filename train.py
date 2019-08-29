@@ -5,7 +5,7 @@ from math import exp
 import torch
 from torch import nn
 from torch.nn import functional as F
-from lastDataset import dataset
+from dataset import Dataset
 from pargs import pargs, dynArgs
 from models.newmodel import Model
 
@@ -17,21 +17,21 @@ def update_lr(o, args, epoch):
         o.param_groups[0]['lr'] -= args.lrchange
 
 
-def train(model, optimizer, ds, args):
+def train(model, optimizer, dataset, args):
     """
-    input words => indices all removed from tags / trained to output indexed tags
+    input words => indices all removed from tags / trained to generate indexed tags
     target words => indices included
     """
-    print("Training", end=" ")
     loss = 0
     ex = 0
-    trainorder = [('t1', ds.t1_iter), ('t2', ds.t2_iter), ('t3', ds.t3_iter)]
-    shuffle(trainorder)
-    for _, train_iter in trainorder:
+    # NOTE: 셔플링 필요한가?
+    # trainorder = [('t1', dataset.t1_iter), ('t2', dataset.t2_iter), ('t3', dataset.t3_iter)]
+    # shuffle(trainorder)
+    for train_iter in dataset.train_iters:
         for count, batch in enumerate(train_iter):
             if count % 100 == 99:
                 print(ex, "of like 40k -- current avg loss ", (loss / ex))
-            batch = ds.fixBatch(batch)
+            batch = dataset.batchify(batch)
 
             model.zero_grad()
             pred, dist_copy, plan_logits = model(batch)  # p: (batch_size, max abstract len, target vocab size + max entity num)
@@ -60,27 +60,29 @@ def train(model, optimizer, ds, args):
     if loss < 100: print(" PPL: ", exp(loss))
 
 
-def evaluate(model, ds, args):
+def evaluate(model, dataset, args):
     print("Evaluating", end="\t")
     model.eval()
-    loss = 0
+    accumulated_loss = 0
     ex = 0
-    for batch in ds.val_iter:
-        batch = ds.fixBatch(batch)
-        p, z, planlogits = model(batch)
-        p = p[:, :-1, :]
+    for batch in dataset.val_iter:
+        batch = dataset.batchify(batch)
+        pred, *_ = model(batch)
+        pred = pred[:, :-1, :]
+
         tgt = batch.tgt[:, 1:].contiguous().view(-1).to(args.device)
-        l = F.nll_loss(p.contiguous().view(-1, p.size(2)), tgt, ignore_index=1)
+        loss = F.nll_loss(pred.contiguous().view(-1, pred.size(2)), tgt, ignore_index=1)
         if ex == 0:
-            g = p[0].max(1)[1]
-            print(ds.reverse(g, batch.rawent))
-        loss += l.item() * len(batch.tgt)
+            gen = pred[0].max(1)[1]
+            print(dataset.reverse(gen, batch.rawent))
+        accumulated_loss += loss.item() * len(batch.tgt)
         ex += len(batch.tgt)
-    loss = loss / ex
-    print("VAL LOSS: ", loss, end="\t")
-    if loss < 100: print(" PPL: ", exp(loss))
+
+    valid_loss = accumulated_loss / ex
+    print("VAL LOSS: ", valid_loss, end="\t")
+    if loss < 100: print(" PPL: ", exp(valid_loss))
     model.train()
-    return loss
+    return valid_loss
 
 
 def main(args):
@@ -89,11 +91,12 @@ def main(args):
         input("Save File Exists, OverWrite? <CTL-C> for no")
     except:
         os.mkdir(args.save)
-    ds = dataset(args)
-    args = dynArgs(args, ds)
-    m = Model(args)
+
+    dataset = Dataset(args, data_dir=args.datadir, eval_path=args.validfile, train_path=args.trainfile)
+    args = dynArgs(args, dataset)
+    model = Model(args)
     print(args.device)
-    m = m.to(args.device)
+    model = model.to(args.device)
     if args.ckpt:
         #
         # with open(args.save+"/commandLineArgs.txt") as f:
@@ -103,34 +106,34 @@ def main(args):
         #   assert([x for x in argdif if x[0]=='-']==['-ckpt'])
         #
         cpt = torch.load(args.ckpt)
-        m.load_state_dict(cpt)
-        starte = int(args.ckpt.split("/")[-1].split(".")[0]) + 1
+        model.load_state_dict(cpt)
+        start_epoch = int(args.ckpt.split("/")[-1].split(".")[0]) + 1
         args.lr = float(args.ckpt.split("-")[-1])
         print('ckpt restored')
 
     else:
         with open(args.save + "/commandLineArgs.txt", 'w') as f:
             f.write("\n".join(sys.argv[1:]))
-        starte = 0
-    o = torch.optim.SGD(m.parameters(), lr=args.lr, momentum=0.9)
+        start_epoch = 0
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
 
     # early stopping based on Val Loss
-    lastloss = 1000000
+    prev_loss = 1000000
 
-    for e in range(starte, args.epochs):
-        print("epoch ", e, "lr", o.param_groups[0]['lr'])
-        train(m, o, ds, args)
-        vloss = evaluate(m, ds, args)
+    for epoch_i in range(start_epoch, args.epochs):
+        print("epoch ", epoch_i, "lr", optimizer.param_groups[0]['lr'])
+        train(model, optimizer, dataset, args)
+        vloss = evaluate(model, dataset, args)
         if args.lrwarm:
-            update_lr(o, args, e)
+            update_lr(optimizer, args, epoch_i)
         print("Saving model")
-        torch.save(m.state_dict(),
-                   args.save + "/" + str(e) + ".vloss-" + str(vloss)[:8] + ".lr-" + str(o.param_groups[0]['lr']))
-        if vloss > lastloss:
+        torch.save(model.state_dict(),
+                   args.save + "/" + str(epoch_i) + ".vloss-" + str(vloss)[:8] + ".lr-" + str(optimizer.param_groups[0]['lr']))
+        if vloss > prev_loss:
             if args.lrdecay:
                 print("decay lr")
-                o.param_groups[0]['lr'] *= 0.5
-        lastloss = vloss
+                optimizer.param_groups[0]['lr'] *= 0.5
+        prev_loss = vloss
 
 
 if __name__ == "__main__":
